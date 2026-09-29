@@ -1,9 +1,10 @@
 # 示例补丁：织布机金费改为 30
+# 语义化字段路径：resource_costs.gold.amount 按资源类型定位（不依赖下标）。
 version: 1
-based_on: "VER 8.4"
+based_on: "VER 8.8"
 steps:
   - name: "织布机金费 30"
     target: { table: techs, name: "Loom" }
     op: set
-    field: "resource_costs.2.amount"
+    field: "resource_costs.gold.amount"
     value: 30

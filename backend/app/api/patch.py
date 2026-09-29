@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from ..core import diff as diff_engine
 from ..core import patch as patch_engine
 from ..deps import require_dat
 from ..schemas import PatchApplyRequest, PatchGenerateRequest
@@ -23,5 +24,11 @@ def apply_patch(body: PatchApplyRequest):
 
 @router.post("/generate")
 def generate_patch(body: PatchGenerateRequest):
-    # TODO: 从 diff / 变更记录反向生成补丁
-    return {"base": body.base, "target": body.target, "patch": ""}
+    report = diff_engine.diff(body.base, body.target)
+    patch_text = patch_engine.generate_from_diff(report)
+    return {
+        "base": body.base,
+        "target": body.target,
+        "summary": report["summary"],
+        "patch": patch_text,
+    }

@@ -1,33 +1,45 @@
 <template>
   <div>
     <h2>概览</h2>
-    <el-alert
-      v-if="!datInfo"
-      type="info"
-      title="尚未加载 dat 文件"
-      description="请在下方选择游戏数据文件（empires2_x2_p1.dat）开始使用。"
-      show-icon
-      :closable="false"
-    />
-    <el-descriptions v-else :column="3" border style="margin-top: 12px">
-      <el-descriptions-item label="版本">{{ datInfo.version }}</el-descriptions-item>
-      <el-descriptions-item label="路径">{{ datInfo.path }}</el-descriptions-item>
-      <el-descriptions-item label="状态">{{ datInfo.dirty ? '已修改' : '干净' }}</el-descriptions-item>
-      <el-descriptions-item v-for="(v, k) in datInfo.counts" :key="k" :label="k">
-        {{ v }}
-      </el-descriptions-item>
-    </el-descriptions>
 
-    <div style="margin-top: 16px">
-      <el-input
-        v-model="path"
-        placeholder="输入 dat 文件路径，如 D:/AoE2DE/resources/_common/dat/empires2_x2_p1.dat"
-        style="max-width: 560px"
-      />
-      <el-button type="primary" style="margin-left: 8px" :loading="loading" @click="load">
-        加载 dat
-      </el-button>
-    </div>
+    <el-row :gutter="12">
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <template #header>应用状态</template>
+          <div v-if="health">版本 {{ health.version }} · 状态 {{ health.status }}</div>
+          <div v-else>未连接后端</div>
+        </el-card>
+      </el-col>
+      <el-col :span="16">
+        <el-card shadow="hover">
+          <template #header>dat 状态</template>
+          <div v-if="datInfo && datInfo.version">
+            <div>版本：{{ datInfo.version }}　文件：{{ datInfo.path }}</div>
+            <div v-if="datInfo.counts" style="margin-top: 6px">
+              文明 {{ datInfo.counts.civs }} · 科技 {{ datInfo.counts.techs }} ·
+              效果 {{ datInfo.counts.effects }} · 单位头 {{ datInfo.counts.unit_headers }}
+            </div>
+          </div>
+          <div v-else>尚未加载 dat</div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-card shadow="never" style="margin-top: 12px">
+      <template #header>操作</template>
+      <el-form inline>
+        <el-form-item label="dat 路径" style="width: 480px">
+          <el-input v-model="datPath" placeholder="empires2_x2_p1.dat 路径" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="loading" @click="load">加载</el-button>
+          <el-button :disabled="!datInfo?.version" @click="save">保存</el-button>
+          <el-button :disabled="!datInfo?.version" @click="undo">撤销</el-button>
+          <el-button :disabled="!datInfo?.version" @click="redo">重做</el-button>
+          <el-button @click="checkUpdate">检查更新</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
   </div>
 </template>
 
@@ -35,20 +47,24 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
-import { useAppStore } from '../stores'
 
-const store = useAppStore()
-const path = ref('')
+const health = ref<any>(null)
 const datInfo = ref<any>(null)
+const datPath = ref('')
 const loading = ref(false)
 
+async function refresh() {
+  health.value = await api.health().catch(() => null)
+  datInfo.value = await api.datInfo().catch(() => null)
+}
+
 async function load() {
-  if (!path.value) return ElMessage.warning('请先输入 dat 文件路径')
+  if (!datPath.value) return ElMessage.warning('请填写 dat 路径')
   loading.value = true
   try {
-    datInfo.value = await api.loadDat(path.value)
-    store.setDatInfo(datInfo.value)
-    ElMessage.success('加载成功')
+    const r = await api.loadDat(datPath.value)
+    datInfo.value = r
+    ElMessage.success(`已加载，语言表条目 ${(r as any).language_entries ?? 0}`)
   } catch (e: any) {
     ElMessage.error(e.message)
   } finally {
@@ -56,11 +72,46 @@ async function load() {
   }
 }
 
-onMounted(async () => {
+async function save() {
   try {
-    datInfo.value = await api.datInfo()
-  } catch {
-    /* 后端未就绪时静默 */
+    await api.saveDat()
+    ElMessage.success('已保存')
+    refresh()
+  } catch (e: any) {
+    ElMessage.error(e.message)
   }
-})
+}
+
+async function undo() {
+  try {
+    const r = await api.undo()
+    ElMessage.success(`已撤销：${(r as any).description}`)
+  } catch (e: any) {
+    ElMessage.error(e.message)
+  }
+}
+
+async function redo() {
+  try {
+    const r = await api.redo()
+    ElMessage.success(`已重做：${(r as any).description}`)
+  } catch (e: any) {
+    ElMessage.error(e.message)
+  }
+}
+
+async function checkUpdate() {
+  try {
+    const r: any = await api.updateCheck()
+    ElMessage.info(
+      r.update_available
+        ? `发现新版本 ${r.latest}（当前 ${r.current}）`
+        : `已是最新（当前 ${r.current}）`
+    )
+  } catch (e: any) {
+    ElMessage.error(e.message)
+  }
+}
+
+onMounted(refresh)
 </script>

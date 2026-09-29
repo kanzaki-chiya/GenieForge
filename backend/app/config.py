@@ -25,6 +25,7 @@ class Config:
             "api_key": None,
             "update_channel": "stable",
             "auto_update": True,
+            "github_repo": "qqxyfb/GenieForge",
         }
 
     def _load(self) -> dict:

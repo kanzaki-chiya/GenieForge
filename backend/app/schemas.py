@@ -20,6 +20,7 @@ class ConfigModel(BaseModel):
     api_key: Optional[str] = None
     update_channel: str = "stable"
     auto_update: bool = True
+    github_repo: str = "qqxyfb/GenieForge"
 
 
 class BatchRequest(BaseModel):

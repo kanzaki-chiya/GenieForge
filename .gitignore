@@ -39,3 +39,6 @@ frontend/.vite/
 # IDE
 .idea/
 .vscode/
+
+# 工作区本地数据（AI 记忆等，不入库）
+.h3caiwork/
