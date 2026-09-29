@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .api import api_router
+from .auth import api_key_guard
 
 app = FastAPI(
     title="GenieForge",
@@ -26,6 +27,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 本地鉴权（可选 X-API-Key，保护写操作）
+app.middleware("http")(api_key_guard)
 
 app.include_router(api_router)
 

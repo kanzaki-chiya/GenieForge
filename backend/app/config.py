@@ -26,6 +26,8 @@ class Config:
             "update_channel": "stable",
             "auto_update": True,
             "github_repo": "qqxyfb/GenieForge",
+            "github_token": None,
+            "project_dir": "patches",
         }
 
     def _load(self) -> dict:

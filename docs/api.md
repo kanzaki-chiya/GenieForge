@@ -1,7 +1,7 @@
 # 公共 API 文档
 
 基址：`http://127.0.0.1:8342`（端口可配置）
-鉴权：可选 `X-API-Key`（默认本机信任）
+鉴权：可选 `X-API-Key`（默认本机信任；设置 `api_key` 后，写操作需携带该请求头）
 在线文档：启动后端后访问 `/docs`（OpenAPI/Swagger，自动生成）
 
 ## 端点总表
@@ -33,6 +33,12 @@
 | GET | `/api/version/list` | 版本历史 |
 | POST | `/api/version/checkout` | 回滚到某版本 |
 | GET | `/api/update/check` | 检查应用更新（GitHub Releases） |
+| POST | `/api/update/download` | 下载更新包并校验 SHA256 |
+| POST | `/api/git/init` | 初始化补丁工程 Git 仓库 |
+| GET | `/api/git/status` | 工程 Git 状态（分支/变更） |
+| GET | `/api/git/log` | 工程提交历史 |
+| POST | `/api/git/commit` | 提交工程变更（body `{message}`） |
+| POST | `/api/git/checkout` | 回滚到某提交（body `{ref}`） |
 
 ## 数据模型说明
 

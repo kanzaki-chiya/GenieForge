@@ -39,7 +39,7 @@
       <el-table :data="records" size="small" border max-height="480">
         <el-table-column type="expand">
           <template #default="{ row }">
-            <el-table v-if="row.change === 'modified'" :data="row.changes" size="mini" border>
+            <el-table v-if="row.change === 'modified'" :data="row.changes" size="small" border>
               <el-table-column prop="field" label="字段" width="200" />
               <el-table-column label="旧值"><template #default="{ row: c }">{{ JSON.stringify(c.old) }}</template></el-table-column>
               <el-table-column label="新值"><template #default="{ row: c }">{{ JSON.stringify(c.new) }}</template></el-table-column>

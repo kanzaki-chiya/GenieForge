@@ -21,6 +21,8 @@ class ConfigModel(BaseModel):
     update_channel: str = "stable"
     auto_update: bool = True
     github_repo: str = "qqxyfb/GenieForge"
+    github_token: Optional[str] = None
+    project_dir: str = "patches"
 
 
 class BatchRequest(BaseModel):

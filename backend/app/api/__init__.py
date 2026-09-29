@@ -9,6 +9,7 @@ from . import (
     dat,
     diff,
     effects,
+    git,
     health,
     names,
     patch,
@@ -38,5 +39,6 @@ for module in (
     names,
     version,
     update,
+    git,
 ):
     api_router.include_router(module.router)

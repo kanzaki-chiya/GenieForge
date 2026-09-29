@@ -26,6 +26,9 @@
       <el-form-item label="GitHub 仓库">
         <el-input v-model="config.github_repo" placeholder="owner/repo" />
       </el-form-item>
+      <el-form-item label="API Key">
+        <el-input v-model="config.api_key" placeholder="留空则不鉴权；设置后写操作需 X-API-Key" show-password />
+      </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="loading" @click="save">保存</el-button>
       </el-form-item>
@@ -44,7 +47,8 @@ const config = reactive({
   port: 8342,
   update_channel: 'stable',
   auto_update: true,
-  github_repo: ''
+  github_repo: '',
+  api_key: ''
 })
 const loading = ref(false)
 
