@@ -1,0 +1,12 @@
+# 统一换行符，跨平台（Windows/macOS/Linux）
+* text=auto
+
+# 二进制文件不做换行符转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.dat binary
+*.exe binary
+*.dll binary

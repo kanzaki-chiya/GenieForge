@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------------------
+# GenieForge .gitignore
+# ---------------------------------------------------------------------------
+
+# 游戏数据与第三方工具（体积大 / 非本项目源码，禁止入库）
+/other/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# PyInstaller / 打包产物
+dist/
+build/output/
+build/temp/
+*.spec.bak
+
+# Node / 前端
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+.DS_Store
+
+# 日志与临时文件
+*.log
+*.tmp
+.python-version
+
+# IDE
+.idea/
+.vscode/

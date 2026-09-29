@@ -1,0 +1,9 @@
+# 示例补丁：织布机金费改为 30
+version: 1
+based_on: "VER 8.4"
+steps:
+  - name: "织布机金费 30"
+    target: { table: techs, name: "Loom" }
+    op: set
+    field: "resource_costs.2.amount"
+    value: 30

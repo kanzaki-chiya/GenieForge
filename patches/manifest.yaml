@@ -1,0 +1,5 @@
+# 工程清单：基准版本 + 补丁顺序 + 官方 dat 哈希（保证补丁套用对象可追溯）
+base_version: "VER 8.4"
+base_dat_hash: ""
+patches:
+  - 001_example.yaml
