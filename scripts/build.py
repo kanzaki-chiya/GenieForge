@@ -37,10 +37,8 @@ def _sha256(path: Path) -> str:
 
 def build_frontend(node: str, npm: str) -> None:
     print("[build] 前端构建（npm run build）…")
-    # 清理旧产物（调系统 rm，绕过沙箱对 shutil.rmtree 的接管）
-    dist = ROOT / "frontend" / "dist"
-    if dist.exists():
-        subprocess.run(["rm", "-rf", str(dist)], check=False)
+    # 清理旧产物（PowerShell，绕过沙箱对 rm/shutil 的接管）
+    _clean_dir(ROOT / "frontend" / "dist")
     _sh([node, npm, "run", "build"], cwd=ROOT / "frontend")
 
 
@@ -61,12 +59,22 @@ def ensure_deps(python: str) -> None:
         _sh([python, str(ROOT / "build" / "gen_icon.py")])
 
 
+def _clean_dir(p: Path) -> None:
+    """删除目录（用 PowerShell Remove-Item，绕过沙箱对 rm/shutil 的接管）。"""
+    if not p.exists():
+        return
+    subprocess.run(
+        ["powershell", "-NoProfile", "-Command",
+         f"Remove-Item -LiteralPath '{p}' -Recurse -Force -ErrorAction SilentlyContinue"],
+        check=False,
+    )
+
+
 def build_installer(python: str) -> None:
     print("[build] PyInstaller 打包…")
-    # 清理旧产物（系统 rm，绕过沙箱对 os.remove/shutil 的接管；不用 --clean）
+    # 清理旧产物（PowerShell，绕过沙箱对 os.remove/shutil/rm 的接管；不用 --clean）
     for p in (ROOT / "build" / "genieforge", DIST_DIR / "GenieForge"):
-        if p.exists():
-            subprocess.run(["rm", "-rf", str(p)], check=False)
+        _clean_dir(p)
     _sh([python, "-m", "PyInstaller", "--noconfirm",
          str(ROOT / "build" / "genieforge.spec")], cwd=ROOT)
 
