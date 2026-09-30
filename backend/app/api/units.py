@@ -47,6 +47,11 @@ def list_units(
                 "type": getattr(u, "type", None),
                 "class": getattr(u, "class_", None),
                 "hit_points": getattr(u, "hit_points", None),
+                "line_of_sight": getattr(u, "line_of_sight", None),
+                "garrison_capacity": getattr(u, "garrison_capacity", None),
+                "speed": getattr(u, "speed", None),
+                "icon_id": getattr(u, "icon_id", None),
+                "language_dll_name": getattr(u, "language_dll_name", None),
                 "present": True,
             }
         )

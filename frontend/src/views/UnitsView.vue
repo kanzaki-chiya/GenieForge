@@ -1,15 +1,21 @@
 <template>
-  <div class="editor">
+  <div class="editor" @keydown.ctrl.67="cp.copy(currentUnit)" @keydown.ctrl.86="cp.paste(currentUnit)">
     <div class="toolbar">
       <el-input
         v-model="q"
         placeholder="搜索单位名…"
         size="small"
         clearable
-        style="width: 240px"
+        style="width: 220px"
         @keyup.enter="fetch"
         @clear="fetch"
       />
+      <el-select v-model="dim1" size="small" style="width: 120px" @change="fetch">
+        <el-option v-for="d in unitDims" :key="d.key" :value="d.key" :label="d.label" />
+      </el-select>
+      <el-select v-model="dim2" size="small" style="width: 120px" @change="fetch">
+        <el-option v-for="d in unitDims" :key="d.key" :value="d.key" :label="d.label" />
+      </el-select>
       <span class="lbl">文明</span>
       <div class="civ-btns">
         <span
@@ -22,6 +28,8 @@
       </div>
       <span class="count">{{ civName }} · 单位 #{{ currentUnit }}</span>
       <el-button size="small" :disabled="!detail" @click="openCompare">对比</el-button>
+      <el-button size="small" :disabled="!detail" @click="cp.copy(currentUnit)">复制</el-button>
+      <el-button size="small" :disabled="!detail" @click="cp.paste(currentUnit)">粘贴</el-button>
     </div>
 
     <div class="body">
@@ -165,8 +173,10 @@ import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
 import DiffDrawer from '../components/DiffDrawer.vue'
 import { useCompare } from '../composables/useCompare'
+import { useCopyPaste } from '../composables/useCopyPaste'
 
 const compare = useCompare()
+const cp = useCopyPaste('units', () => civ.value)
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import SubTable from '../components/SubTable.vue'
@@ -184,10 +194,31 @@ const detail = ref<any>(null)
 const currentUnit = ref(-1)
 const q = ref('')
 
+const unitDims = [
+  { key: '', label: '*无*', mark: '' },
+  { key: 'class', label: 'Class', mark: 'C' },
+  { key: 'type', label: 'Type', mark: 'T' },
+  { key: 'hit_points', label: 'Hit Points', mark: 'HP' },
+  { key: 'line_of_sight', label: 'Line of Sight', mark: 'LS' },
+  { key: 'garrison_capacity', label: 'Garrison Capacity', mark: 'GC' },
+  { key: 'speed', label: 'Speed', mark: 'SP' },
+  { key: 'icon_id', label: 'Icon', mark: 'I' },
+  { key: 'language_dll_name', label: 'Lang File Name', mark: 'LN' }
+]
+const dim1 = ref('')
+const dim2 = ref('')
+
+function dimMark(key: string, row: any): string {
+  const d = unitDims.find((x) => x.key === key)
+  if (!d || !d.mark) return ''
+  const v = key === 'unit_id' ? row.unit_id : row[key]
+  return v == null ? '' : ` ${d.mark} ${v}`
+}
+
 function formatUnit(row: any) {
-  const cls = row.class != null ? ` C ${row.class}` : ''
-  const type = row.type != null ? ` T ${row.type}` : ''
-  return `${row.unit_id} -${cls}${type}, ${row.name}`
+  const m1 = dimMark(dim1.value, row)
+  const m2 = dimMark(dim2.value, row)
+  return `${row.unit_id} -${m1}${m2}, ${row.name}`
 }
 
 const diffVisible = ref(false)

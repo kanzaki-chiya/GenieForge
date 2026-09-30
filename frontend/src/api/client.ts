@@ -81,6 +81,8 @@ export const api = {
     request('/api/batch/preview', { method: 'POST', body: JSON.stringify({ targets, ops }) }),
   batch: (targets: unknown[], ops: unknown[]) =>
     request('/api/batch', { method: 'POST', body: JSON.stringify({ targets, ops }) }),
+  copyEntity: (table: string, src: number, dst: number, civ?: number) =>
+    request('/api/copy', { method: 'POST', body: JSON.stringify({ table, src, dst, civ }) }),
   diff: (base: string, target: string) =>
     request('/api/diff', { method: 'POST', body: JSON.stringify({ base, target }) }),
   patchApply: (patch: string) =>
