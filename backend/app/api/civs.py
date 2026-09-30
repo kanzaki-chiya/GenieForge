@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 
+from ... import metadata
 from ..core.names import name_resolver
 from ..deps import dat_core, require_dat
 
@@ -43,6 +44,10 @@ def get_civ(civ_id: int):
         "tech_tree_name": d.effects[c.tech_tree_id].name if 0 <= c.tech_tree_id < n_effects else None,
         "team_bonus_id": c.team_bonus_id,
         "team_bonus_name": d.effects[c.team_bonus_id].name if 0 <= c.team_bonus_id < n_effects else None,
+        "resources": [
+            {"index": i, "value": v, "name": metadata.civ_resource_name(i)}
+            for i, v in enumerate(c.resources)
+        ],
     }
 
 

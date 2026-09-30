@@ -48,8 +48,12 @@ export const api = {
   effects: (params: Record<string, string | number> = {}) => request('/api/effects' + qs(params)),
   effectNames: () => request('/api/effects/names'),
   effectDetail: (id: number) => request(`/api/effects/${id}`),
+  patchEffect: (id: number, body: Record<string, unknown>) =>
+    request(`/api/effects/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   civs: () => request('/api/civs'),
   civDetail: (id: number) => request(`/api/civs/${id}`),
+  patchCiv: (id: number, body: Record<string, unknown>) =>
+    request(`/api/civs/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   units: (civ: number, q?: string) => request('/api/units' + qs({ civ, q })),
   unitDetail: (civ: number, unitId: number) => request(`/api/units/${civ}/${unitId}`),
   patchUnit: (civ: number, unitId: number, body: Record<string, unknown>) =>
