@@ -12,6 +12,7 @@
       />
       <el-button size="small" @click="fetch">搜索</el-button>
       <span class="count">共 {{ total }} 条 · 当前 #{{ currentId }}</span>
+      <el-button size="small" :disabled="!detail" @click="openCompare">对比</el-button>
     </div>
 
     <div class="body">
@@ -59,6 +60,18 @@
         <el-empty description="选择左侧效果查看详情" />
       </div>
     </div>
+
+    <DiffDrawer
+      v-if="detail"
+      v-model="diffVisible"
+      :table="'effects'"
+      :entity-id="detail.id"
+      :title="detail.name"
+      :baseline="detail"
+      :scalar-fields="scalarFields"
+      :list-fields="listFields"
+      @apply="onApplyDiff"
+    />
   </div>
 </template>
 
@@ -68,6 +81,10 @@ import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
+import DiffDrawer from '../components/DiffDrawer.vue'
+import { useCompare } from '../composables/useCompare'
+
+const compare = useCompare()
 import Field from '../components/Field.vue'
 import { useRoute } from 'vue-router'
 
@@ -81,6 +98,26 @@ const detail = ref<any>(null)
 const currentId = ref(-1)
 const unitItems = ref<{ value: number; label: string }[]>([])
 const techItems = ref<{ value: number; label: string }[]>([])
+const diffVisible = ref(false)
+
+const scalarFields = [{ key: 'name', label: '名称' }]
+const listFields = [{ key: 'effect_commands', label: '效果命令' }]
+
+function openCompare() {
+  if (!compare.state.active || !compare.state.loaded) {
+    ElMessage.info('请先在顶部开启对比模式并加载目标文件')
+    return
+  }
+  diffVisible.value = true
+}
+
+function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
+  if (p.list) {
+    saveTable(p.value as unknown[])
+  } else {
+    save(p.field, p.value)
+  }
+}
 
 function paramsFor(type: number) {
   if (type === 101) {

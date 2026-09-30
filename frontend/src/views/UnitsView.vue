@@ -21,6 +21,7 @@
         >{{ c.name.slice(0, 2) }}</span>
       </div>
       <span class="count">{{ civName }} · 单位 #{{ currentUnit }}</span>
+      <el-button size="small" :disabled="!detail" @click="openCompare">对比</el-button>
     </div>
 
     <div class="body">
@@ -142,6 +143,19 @@
         <el-empty :description="detail && !detail.present ? '该文明无此单位' : '选择左侧单位查看详情'" />
       </div>
     </div>
+
+    <DiffDrawer
+      v-if="detail"
+      v-model="diffVisible"
+      :table="'units'"
+      :entity-id="detail.unit_id"
+      :civ="civ"
+      :title="detail.name"
+      :baseline="detail"
+      :scalar-fields="scalarFields"
+      :list-fields="listFields"
+      @apply="onApplyDiff"
+    />
   </div>
 </template>
 
@@ -149,6 +163,10 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
+import DiffDrawer from '../components/DiffDrawer.vue'
+import { useCompare } from '../composables/useCompare'
+
+const compare = useCompare()
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import SubTable from '../components/SubTable.vue'
@@ -169,6 +187,52 @@ const q = ref('')
 function formatUnit(row: any) {
   const cls = row.class != null ? ` C ${row.class}` : ''
   return `${row.unit_id} -${cls}, ${row.name}`
+}
+
+const diffVisible = ref(false)
+const scalarFields = [
+  { key: 'name', label: '名称' },
+  { key: 'type', label: '类型' },
+  { key: 'class', label: '类别' },
+  { key: 'hit_points', label: '生命' },
+  { key: 'speed', label: '速度' },
+  { key: 'line_of_sight', label: '视野' },
+  { key: 'base_armor', label: '基础护甲' },
+  { key: 'max_range', label: '最大射程' },
+  { key: 'min_range', label: '最小射程' },
+  { key: 'reload_time', label: '装填时间' },
+  { key: 'icon_id', label: '图标' },
+  { key: 'garrison_capacity', label: '驻军容量' },
+  { key: 'resource_costs', label: '费用' }
+]
+const listFields = [
+  { key: 'attacks', label: '攻击' },
+  { key: 'armors', label: '护甲' },
+  { key: 'train_locations', label: '训练位置' },
+  { key: 'damage_graphics', label: '伤害图形' }
+]
+
+function openCompare() {
+  if (!compare.state.active || !compare.state.loaded) {
+    ElMessage.info('请先在顶部开启对比模式并加载目标文件')
+    return
+  }
+  diffVisible.value = true
+}
+
+function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
+  if (p.list) {
+    const pathMap: Record<string, string> = {
+      attacks: 'type_50.attacks',
+      armors: 'type_50.armours',
+      train_locations: 'creatable.train_locations',
+      damage_graphics: 'damage_graphics'
+    }
+    const path = pathMap[p.field] || p.field
+    saveTable(path, p.field, p.value as unknown[])
+  } else {
+    save(p.field, p.value)
+  }
 }
 
 const attackCols = [

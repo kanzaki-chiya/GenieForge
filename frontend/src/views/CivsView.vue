@@ -10,6 +10,7 @@
         @input="filterRows"
       />
       <span class="count">当前 #{{ currentId }} · 资源 {{ detail?.resources?.length || 0 }} 项</span>
+      <el-button size="small" :disabled="!detail" @click="openCompare">对比</el-button>
     </div>
 
     <div class="body">
@@ -63,6 +64,18 @@
         <el-empty description="选择左侧文明查看详情" />
       </div>
     </div>
+
+    <DiffDrawer
+      v-if="detail"
+      v-model="diffVisible"
+      :table="'civs'"
+      :entity-id="detail.id"
+      :title="detail.name"
+      :baseline="detail"
+      :scalar-fields="scalarFields"
+      :list-fields="listFields"
+      @apply="onApplyDiff"
+    />
   </div>
 </template>
 
@@ -73,15 +86,40 @@ import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import Field from '../components/Field.vue'
+import DiffDrawer from '../components/DiffDrawer.vue'
+import { useCompare } from '../composables/useCompare'
 
+const compare = useCompare()
 const rows = ref<any[]>([])
 const allRows = ref<any[]>([])
 const detail = ref<any>(null)
 const currentId = ref(-1)
 const q = ref('')
 const effectItems = ref<{ value: number; label: string }[]>([])
+const diffVisible = ref(false)
+
+const scalarFields = [
+  { key: 'name', label: '名称' },
+  { key: 'player_type', label: '玩家类型' },
+  { key: 'icon_set', label: '图标集' },
+  { key: 'tech_tree_id', label: '科技树' },
+  { key: 'team_bonus_id', label: '团队加成' }
+]
+const listFields: { key: string; label: string }[] = []
 
 const filteredResources = computed(() => detail.value?.resources || [])
+
+function openCompare() {
+  if (!compare.state.active || !compare.state.loaded) {
+    ElMessage.info('请先在顶部开启对比模式并加载目标文件')
+    return
+  }
+  diffVisible.value = true
+}
+
+function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
+  save(p.field, p.value)
+}
 
 async function fetch() {
   const r: any = await api.civs()
