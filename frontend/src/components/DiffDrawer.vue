@@ -1,6 +1,16 @@
 <template>
   <el-drawer :model-value="modelValue" :title="`对比：${title}`" size="46%" direction="rtl" @update:model-value="$emit('update:modelValue', $event)">
-    <div v-if="loading" class="empty">
+    <div class="target-bar">
+      <span class="tb-label">目标文件</span>
+      <FilePicker v-model="compare.state.path" placeholder="选择目标 dat 文件" />
+      <el-button size="small" :loading="loadingTarget" @click="loadTargetFile">加载</el-button>
+      <span v-if="compare.state.version" class="tb-info">科技 {{ compare.state.version.techs }} · 效果 {{ compare.state.version.effects }} · 文明 {{ compare.state.version.civs }}</span>
+    </div>
+
+    <div v-if="!compare.state.loaded" class="empty">
+      <el-empty description="请先加载目标文件" />
+    </div>
+    <div v-else-if="loading" class="empty">
       <el-empty description="加载目标中…" />
     </div>
     <div v-else-if="!target" class="empty">
@@ -39,6 +49,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { api } from '../api/client'
+import FilePicker from './FilePicker.vue'
+import { useCompare } from '../composables/useCompare'
+
+const compare = useCompare()
+const loadingTarget = ref(false)
 
 const props = defineProps<{
   modelValue: boolean
@@ -55,7 +70,19 @@ const emit = defineEmits(['update:modelValue', 'apply'])
 const target = ref<Record<string, unknown> | null>(null)
 const loading = ref(false)
 
+async function loadTargetFile() {
+  if (!compare.state.path) return
+  loadingTarget.value = true
+  try {
+    await compare.loadTarget(compare.state.path)
+    await load()
+  } finally {
+    loadingTarget.value = false
+  }
+}
+
 async function load() {
+  if (!compare.state.loaded) return
   loading.value = true
   try {
     target.value = await api.diffEntity(props.table, props.entityId, props.civ || 0)
@@ -67,9 +94,9 @@ async function load() {
 }
 
 watch(
-  () => [props.modelValue, props.entityId],
+  () => [props.modelValue, props.entityId, compare.state.loaded],
   () => {
-    if (props.modelValue) load()
+    if (props.modelValue && compare.state.loaded) load()
   }
 )
 
@@ -153,6 +180,9 @@ async function applyAll() {
 </script>
 
 <style scoped>
+.target-bar { display: flex; align-items: center; gap: 8px; padding: 4px 0 12px; border-bottom: 1px solid #34373a; margin-bottom: 10px; }
+.tb-label { font-size: 12px; color: #9a9a9a; flex-shrink: 0; }
+.tb-info { font-size: 11px; color: #9a9a9a; }
 .empty { padding: 24px; }
 .diff-form { padding: 0 4px; }
 .summary { padding: 8px 4px 12px; display: flex; align-items: center; }

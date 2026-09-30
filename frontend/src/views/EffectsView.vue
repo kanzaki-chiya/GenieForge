@@ -104,10 +104,6 @@ const scalarFields = [{ key: 'name', label: '名称' }]
 const listFields = [{ key: 'effect_commands', label: '效果命令' }]
 
 function openCompare() {
-  if (!compare.state.active || !compare.state.loaded) {
-    ElMessage.info('请先在顶部开启对比模式并加载目标文件')
-    return
-  }
   diffVisible.value = true
 }
 

@@ -37,7 +37,7 @@ def list_units(
         name = getattr(u, "name", None) or ""
         if q:
             ql = q.lower()
-            marker = f"c {getattr(u, 'class_', '')}"
+            marker = f"c {getattr(u, 'class_', '')} t {getattr(u, 'type', '')}"
             if ql not in name.lower() and ql not in str(uid) and ql not in marker:
                 continue
         items.append(

@@ -110,10 +110,6 @@ const listFields: { key: string; label: string }[] = []
 const filteredResources = computed(() => detail.value?.resources || [])
 
 function openCompare() {
-  if (!compare.state.active || !compare.state.loaded) {
-    ElMessage.info('请先在顶部开启对比模式并加载目标文件')
-    return
-  }
   diffVisible.value = true
 }
 

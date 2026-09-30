@@ -153,10 +153,6 @@ function jumpTo(path: string, id: number) {
 }
 
 function openCompare() {
-  if (!compare.state.active || !compare.state.loaded) {
-    ElMessage.info('请先在顶部开启对比模式并加载目标文件')
-    return
-  }
   diffVisible.value = true
 }
 const diffVisible = ref(false)

@@ -186,7 +186,8 @@ const q = ref('')
 
 function formatUnit(row: any) {
   const cls = row.class != null ? ` C ${row.class}` : ''
-  return `${row.unit_id} -${cls}, ${row.name}`
+  const type = row.type != null ? ` T ${row.type}` : ''
+  return `${row.unit_id} -${cls}${type}, ${row.name}`
 }
 
 const diffVisible = ref(false)
@@ -213,10 +214,6 @@ const listFields = [
 ]
 
 function openCompare() {
-  if (!compare.state.active || !compare.state.loaded) {
-    ElMessage.info('请先在顶部开启对比模式并加载目标文件')
-    return
-  }
   diffVisible.value = true
 }
 

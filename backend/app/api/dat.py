@@ -58,6 +58,15 @@ def dat_info():
     return dat_core.info()
 
 
+@router.post("/reload-language")
+def reload_language():
+    """重新加载配置的语言文件（加载 dat 后配置语言文件时可刷新）。"""
+    if dat_core.get() is None:
+        raise HTTPException(400, "尚未加载 dat")
+    lang_count = _try_load_language()
+    return {"language_entries": lang_count}
+
+
 @router.post("/save")
 def save_dat(body: DatSaveRequest | None = None):
     try:

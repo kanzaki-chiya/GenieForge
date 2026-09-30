@@ -36,6 +36,7 @@ export const api = {
     request('/api/dat/load', { method: 'POST', body: JSON.stringify({ path }) }),
   saveDat: (path?: string) =>
     request('/api/dat/save', { method: 'POST', body: JSON.stringify({ path }) }),
+  datReloadLanguage: () => request('/api/dat/reload-language', { method: 'POST' }),
   undo: () => request('/api/dat/undo', { method: 'POST' }),
   redo: () => request('/api/dat/redo', { method: 'POST' }),
 

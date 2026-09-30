@@ -3,10 +3,10 @@
     <h2>对比差异</h2>
     <el-form label-width="80px" style="max-width: 720px">
       <el-form-item label="基准 dat">
-        <el-input v-model="base" placeholder="旧版 / 官方版 dat 路径" />
+        <FilePicker v-model="base" placeholder="旧版 / 官方版 dat 路径" />
       </el-form-item>
       <el-form-item label="目标 dat">
-        <el-input v-model="target" placeholder="新版 / 我的 mod 版 dat 路径" />
+        <FilePicker v-model="target" placeholder="新版 / 我的 mod 版 dat 路径" />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="loading" @click="run">开始对比</el-button>
@@ -64,6 +64,7 @@
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
+import FilePicker from '../components/FilePicker.vue'
 
 const base = ref('')
 const target = ref('')
