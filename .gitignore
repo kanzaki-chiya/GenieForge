@@ -34,6 +34,7 @@ frontend/dist/
 frontend/.vite/
 *.local
 .DS_Store
+vite.config.ts.timestamp-*.mjs
 
 # 日志与临时文件
 *.log
