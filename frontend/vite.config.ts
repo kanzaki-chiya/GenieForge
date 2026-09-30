@@ -23,6 +23,10 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
+  build: {
+    // 沙箱环境下 rmSync 被接管（genie-trash）会超时，关闭自动清空目录
+    emptyOutDir: false
+  },
   server: {
     port: 5173,
     proxy: {

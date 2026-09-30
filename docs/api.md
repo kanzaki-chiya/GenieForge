@@ -21,6 +21,8 @@
 | GET | `/api/effects` / `/api/effects/{id}` | 效果列表/详情（含效果指令） |
 | GET | `/api/civs` / `/api/civs/{id}` | 文明列表/详情（含科技树/团队加成引用） |
 | GET | `/api/units?civ=&q=` | 单位查询（按文明的单位覆盖） |
+| GET | `/api/units/{unit_id}` | 主单位完整属性（攻击/护甲/费用，从 Civ.units 补全 unit_headers 缺失字段） |
+| GET | `/api/units/{civ}/{unit_id}` | 某文明对某单位的覆盖 |
 | POST | `/api/batch/preview` | 批量修改预览（body：目标集 + op） |
 | POST | `/api/batch` | 批量修改执行（命令模式，可整体撤销） |
 | POST | `/api/diff` | 对比两个 dat（body `{base, target}`），三级 diff |
@@ -49,6 +51,10 @@
   对应下标（`food`/`wood`/`stone`/`gold`），无需关心下标位置。
 - `Civ.tech_tree_id` 与 `Civ.team_bonus_id` 均指向 **effects 表**（科技树 /
   团队加成效果），而非 techs 表。
+- `unit_headers` 仅含 exists/task_list；完整单位属性在 `Civ.units[]`，
+  经 `/api/units/{unit_id}` 可查攻击/护甲/费用（护甲/资源类型已映射中文名）。
+- 效果指令类型（`EffectCommand.type`）枚举已内置完整映射（0~48、101~103 等，
+  见 `metadata/effect_types.json`）。
 - 显示名（中文）需要配置游戏目录并加载语言文件 `key-value-strings-utf8.txt`；
   未配置时回退为内部英文名。
 

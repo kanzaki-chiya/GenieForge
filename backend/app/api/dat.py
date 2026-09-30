@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from ..config import config as app_config
 from ..core.names import name_resolver
 from ..core.refs import ref_index
+from ..core.unit_index import unit_index
 from ..core.version import version_store
 from ..deps import dat_core
 from ..schemas import DatLoadRequest, DatSaveRequest
@@ -46,9 +47,10 @@ def load_dat(body: DatLoadRequest):
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"加载失败: {exc}") from exc
 
-    # 构建引用索引 + 尝试加载语言表
+    # 构建引用索引 + 主单位索引 + 尝试加载语言表
     try:
         ref_index.build()
+        unit_index.build()
     except Exception:  # noqa: BLE001
         pass
     lang_count = _try_load_language()

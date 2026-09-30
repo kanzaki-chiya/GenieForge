@@ -22,7 +22,11 @@ env/
 dist/
 build/output/
 build/temp/
+build/genieforge/
 *.spec.bak
+
+# 发布产物（zip / checksums，由 scripts/build.py 生成）
+release/
 
 # Node / 前端
 node_modules/

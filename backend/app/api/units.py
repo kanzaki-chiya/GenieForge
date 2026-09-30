@@ -1,7 +1,13 @@
-"""单位查询：按文明返回单位覆盖（Unit 在 Civ.units[] 中，方案 §6）。"""
+"""单位查询（方案 §6）。
+
+- 按文明查单位覆盖：``GET /api/units?civ=&q=``
+- 主单位完整属性：``GET /api/units/{unit_id}``（从 Civ.units 提取，补全 unit_headers 缺失字段）
+- 某文明单位覆盖详情：``GET /api/units/{civ}/{unit_id}``
+"""
 
 from fastapi import APIRouter, HTTPException, Query
 
+from ..core.unit_index import summarize_unit, unit_index
 from ..deps import require_dat
 
 router = APIRouter(prefix="/units", tags=["units"])
@@ -35,7 +41,6 @@ def list_units(
                 "name": name,
                 "type": getattr(u, "type", None),
                 "hit_points": getattr(u, "hit_points", None),
-                "line_of_sight": getattr(u, "line_of_sight", None),
                 "present": True,
             }
         )
@@ -44,8 +49,19 @@ def list_units(
     return {"civ": civ, "civ_name": c.name, "total": len(items), "items": items}
 
 
+@router.get("/{unit_id}")
+def get_main_unit(unit_id: int):
+    """主单位完整属性（补全 unit_headers 缺失的攻击/护甲/费用等）。"""
+    require_dat()
+    u = unit_index.get(unit_id)
+    if u is None:
+        raise HTTPException(404, "单位不存在")
+    return summarize_unit(u, unit_id)
+
+
 @router.get("/{civ}/{unit_id}")
-def get_unit(civ: int, unit_id: int):
+def get_civ_unit(civ: int, unit_id: int):
+    """某文明对某单位的覆盖（完整属性）。"""
     core = require_dat()
     d = core.get()
     if not (0 <= civ < len(d.civs)):
@@ -56,15 +72,4 @@ def get_unit(civ: int, unit_id: int):
     u = c.units[unit_id]
     if u is None:
         return {"civ": civ, "unit_id": unit_id, "present": False}
-    return {
-        "civ": civ,
-        "unit_id": unit_id,
-        "present": True,
-        "name": getattr(u, "name", None),
-        "type": getattr(u, "type", None),
-        "class": getattr(u, "class_", None),
-        "hit_points": getattr(u, "hit_points", None),
-        "line_of_sight": getattr(u, "line_of_sight", None),
-        "speed": getattr(u, "speed", None),
-        "attack": getattr(u, "type_50", None).base_armor if getattr(u, "type_50", None) else None,
-    }
+    return {**summarize_unit(u, unit_id), "civ": civ, "civ_name": c.name}
