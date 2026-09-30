@@ -2,6 +2,9 @@
 
 支持 ``a.b.2.c`` 形式的点路径（``.2.`` 表示列表/元组下标），
 用于语义补丁、批量操作与 PATCH 接口统一读写嵌套字段。
+
+写操作对元组中间层级做了支持：命中元组时转 list → 修改 → 写回新元组，
+这样 ``required_techs.0`` / ``resource_costs.1.amount`` 这类路径可直接赋值。
 """
 
 from typing import Any
@@ -19,22 +22,44 @@ def get_field(obj: Any, dotted: str) -> Any:
     return _resolve(obj, dotted.split("."))
 
 
-def set_field(obj: Any, dotted: str, value: Any) -> Any:
-    """写入路径并返回旧值（供撤销）。
-
-    注意：元组是不可变的，若中间路径命中元组元素，直接改元素对象的属性即可；
-    若需要替换元组本身，请调用方自行重建（见 patch.append/remove）。
-    """
-    parts = dotted.split(".")
-    parent = _resolve(obj, parts[:-1])
+def _set_recursive(cur: Any, parts: list[str], value: Any):
+    """递归写入，返回需要写回上层的新容器（若上层是元组）。"""
     last = parts[-1]
-    if last.isdigit():
-        idx = int(last)
-        old = parent[idx]
-        parent[idx] = value
-    else:
-        old = getattr(parent, last)
-        setattr(parent, last, value)
+    if len(parts) == 1:
+        if last.isdigit():
+            idx = int(last)
+            if isinstance(cur, tuple):
+                lst = list(cur)
+                lst[idx] = value
+                return tuple(lst)
+            cur[idx] = value
+            return None
+        setattr(cur, last, value)
+        return None
+
+    first = parts[0]
+    if first.isdigit():
+        idx = int(first)
+        child = cur[idx]
+        result = _set_recursive(child, parts[1:], value)
+        if result is not None:
+            if isinstance(cur, tuple):
+                lst = list(cur)
+                lst[idx] = result
+                return tuple(lst)
+            cur[idx] = result
+        return None
+    child = getattr(cur, first)
+    result = _set_recursive(child, parts[1:], value)
+    if result is not None:
+        setattr(cur, first, result)
+    return None
+
+
+def set_field(obj: Any, dotted: str, value: Any) -> Any:
+    """写入路径并返回旧值（供撤销）。支持元组中间层级。"""
+    old = get_field(obj, dotted)
+    _set_recursive(obj, dotted.split("."), value)
     return old
 
 

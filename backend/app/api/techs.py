@@ -38,6 +38,13 @@ def list_techs(
     return {"total": len(items), "items": items[start : start + page_size]}
 
 
+@router.get("/names")
+def list_tech_names():
+    """全量科技名称（供前置科技/引用下拉）。"""
+    d = require_dat().get()
+    return {"items": [{"id": i, "name": t.name} for i, t in enumerate(d.techs)]}
+
+
 @router.get("/{tech_id}")
 def get_tech(tech_id: int):
     core = require_dat()
@@ -46,6 +53,7 @@ def get_tech(tech_id: int):
         raise HTTPException(404, "科技不存在")
     t = d.techs[tech_id]
     n_techs = len(d.techs)
+    n_effects = len(d.effects)
     return {
         "id": tech_id,
         "name": t.name,
@@ -53,27 +61,30 @@ def get_tech(tech_id: int):
         "type": t.type,
         "civ": t.civ,
         "repeatable": t.repeatable,
-        "effect_id": t.effect_id,
+        "full_tech_mode": t.full_tech_mode,
         "icon_id": t.icon_id,
-        "required_techs": [
-            {"id": rt, "name": d.techs[rt].name if 0 <= rt < n_techs else None}
-            for rt in t.required_techs[: t.required_tech_count]
-            if rt >= 0
-        ],
+        "effect_id": t.effect_id,
+        "effect_name": d.effects[t.effect_id].name if 0 <= t.effect_id < n_effects else None,
+        "required_tech_count": t.required_tech_count,
+        # 完整原始结构（供点路径编辑：required_techs.N / resource_costs.N.amount）
+        "required_techs": list(t.required_techs),
         "resource_costs": [
-            {
-                "type": rc.type,
-                "type_name": metadata.resource_type(rc.type),
-                "amount": rc.amount,
-                "flag": rc.flag,
-            }
+            {"type": rc.type, "amount": rc.amount, "flag": rc.flag}
             for rc in t.resource_costs
-            if rc.type != -1
         ],
         "research_locations": [
-            {"location_id": rl.location_id, "research_time": rl.research_time}
+            {
+                "location_id": rl.location_id,
+                "research_time": rl.research_time,
+                "button_id": rl.button_id,
+                "hot_key_id": rl.hot_key_id,
+            }
             for rl in t.research_locations
         ],
+        "language_dll_name": t.language_dll_name,
+        "language_dll_description": t.language_dll_description,
+        "language_dll_help": t.language_dll_help,
+        "language_dll_tech_tree": t.language_dll_tech_tree,
     }
 
 

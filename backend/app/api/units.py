@@ -8,7 +8,7 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from ..core.unit_index import summarize_unit, unit_index
-from ..deps import require_dat
+from ..deps import dat_core, require_dat
 
 router = APIRouter(prefix="/units", tags=["units"])
 
@@ -73,3 +73,23 @@ def get_civ_unit(civ: int, unit_id: int):
     if u is None:
         return {"civ": civ, "unit_id": unit_id, "present": False}
     return {**summarize_unit(u, unit_id), "civ": civ, "civ_name": c.name}
+
+
+@router.patch("/{civ}/{unit_id}")
+def patch_unit(civ: int, unit_id: int, body: dict):
+    """按点路径修改某文明单位字段（走命令栈，可撤销）。"""
+    d = dat_core.get()
+    if not (0 <= civ < len(d.civs)):
+        raise HTTPException(404, "文明不存在")
+    c = d.civs[civ]
+    if not (0 <= unit_id < len(c.units)):
+        raise HTTPException(404, "单位不存在")
+    u = c.units[unit_id]
+    if u is None:
+        raise HTTPException(404, "该文明无此单位")
+    field = body.get("field")
+    if field is None:
+        raise HTTPException(400, "缺少 field")
+    value = body.get("value")
+    dat_core.edit_field(u, field, value, f"units[{civ}][{unit_id}].{field}")
+    return {"civ": civ, "unit_id": unit_id, "field": field, "value": value}

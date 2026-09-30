@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 
 from ..core.names import name_resolver
-from ..deps import require_dat
+from ..deps import dat_core, require_dat
 
 router = APIRouter(prefix="/civs", tags=["civs"])
 
@@ -44,3 +44,18 @@ def get_civ(civ_id: int):
         "team_bonus_id": c.team_bonus_id,
         "team_bonus_name": d.effects[c.team_bonus_id].name if 0 <= c.team_bonus_id < n_effects else None,
     }
+
+
+@router.patch("/{civ_id}")
+def patch_civ(civ_id: int, body: dict):
+    """按点路径修改文明字段（走命令栈，可撤销）。"""
+    d = dat_core.get()
+    if not (0 <= civ_id < len(d.civs)):
+        raise HTTPException(404, "文明不存在")
+    c = d.civs[civ_id]
+    field = body.get("field")
+    if field is None:
+        raise HTTPException(400, "缺少 field")
+    value = body.get("value")
+    dat_core.edit_field(c, field, value, f"civs[{civ_id}].{field}")
+    return {"id": civ_id, "field": field, "value": value}

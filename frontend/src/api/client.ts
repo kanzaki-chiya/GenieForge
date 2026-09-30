@@ -41,10 +41,12 @@ export const api = {
 
   // 资源
   techs: (params: Record<string, string | number> = {}) => request('/api/techs' + qs(params)),
+  techNames: () => request('/api/techs/names'),
   techDetail: (id: number) => request(`/api/techs/${id}`),
   patchTech: (id: number, body: Record<string, unknown>) =>
     request(`/api/techs/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   effects: (params: Record<string, string | number> = {}) => request('/api/effects' + qs(params)),
+  effectNames: () => request('/api/effects/names'),
   effectDetail: (id: number) => request(`/api/effects/${id}`),
   civs: () => request('/api/civs'),
   civDetail: (id: number) => request(`/api/civs/${id}`),
@@ -55,6 +57,9 @@ export const api = {
   names: (id: number) => request(`/api/names/${id}`),
   refsForward: (table: string, id: number) => request(`/api/refs/forward/${table}/${id}`),
   refsReverse: (table: string, id: number) => request(`/api/refs/reverse/${table}/${id}`),
+
+  // 枚举元数据
+  meta: (name: string) => request(`/api/meta/${name}`),
 
   // 批量 / 对比 / 补丁
   batchPreview: (targets: unknown[], ops: unknown[]) =>
