@@ -93,8 +93,10 @@
           <SubTable
             :columns="researchColumns"
             :model-value="detail.research_locations"
-            :template="researchTemplate"
-            @update-row="onResearchChange"
+            @cell-commit="onResearchCell"
+            @add-row="onResearchAdd"
+            @insert-row="onResearchInsert"
+            @remove-row="onResearchRemove"
           />
         </div>
       </div>
@@ -173,8 +175,35 @@ async function save(field: string, value: unknown) {
   }
 }
 
-function onResearchChange(p: { rowIndex: number; colKey: string }) {
-  save(`research_locations.${p.rowIndex}.${p.colKey}`, detail.value.research_locations[p.rowIndex][p.colKey])
+function onResearchCell(p: { rowIndex: number; colKey: string; value: unknown }) {
+  save(`research_locations.${p.rowIndex}.${p.colKey}`, p.value)
+}
+
+function onResearchAdd() {
+  const rows = [...detail.value.research_locations, researchTemplate()]
+  saveTable('research_locations', rows)
+}
+
+function onResearchInsert(idx: number) {
+  const rows = [...detail.value.research_locations]
+  rows.splice(idx, 0, researchTemplate())
+  saveTable('research_locations', rows)
+}
+
+function onResearchRemove(idx: number) {
+  const rows = detail.value.research_locations.filter((_: unknown, i: number) => i !== idx)
+  saveTable('research_locations', rows)
+}
+
+async function saveTable(field: string, rows: unknown[]) {
+  if (!detail.value) return
+  try {
+    await api.patchTech(detail.value.id, { field, value: rows })
+    setDetail(field, rows)
+    ElMessage.success({ message: `${field} 已更新`, duration: 1000 })
+  } catch (e: any) {
+    ElMessage.error(e.message)
+  }
 }
 
 onMounted(() => {

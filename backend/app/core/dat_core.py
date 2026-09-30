@@ -169,6 +169,11 @@ class DatCore:
     # ------------------------------------------------------------------ 字段级命令
     def edit_field(self, obj, dotted: str, value, desc: str) -> None:
         """按点路径修改字段并压入撤销栈（命令模式）。"""
+        # 子表整体替换：dict 列表 → 对象列表（见 subtable.coerce_rows）
+        from .subtable import coerce_rows
+
+        field_name = dotted.split(".")[-1]
+        value = coerce_rows(field_name, value)
         old = set_field(obj, dotted, value)
         self.push_command(
             desc,

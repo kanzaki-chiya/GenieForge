@@ -14,6 +14,19 @@ HOST = "127.0.0.1"
 PORT = 8342
 
 
+class Api:
+    """暴露给前端 JS（window.pywebview.api）的原生能力。"""
+
+    def open_file_dialog(self) -> str | None:
+        """原生文件选择器，返回选中的 dat 路径（取消返回 None）。"""
+        result = webview.windows[0].create_file_dialog(
+            webview.OPEN_DIALOG,
+            allow_multiple=False,
+            file_types=("Dat 文件 (*.dat)", "所有文件 (*.*)"),
+        )
+        return result[0] if result else None
+
+
 def main() -> None:
     from backend.app.main import app
 
@@ -30,6 +43,7 @@ def main() -> None:
         width=1280,
         height=800,
         min_size=(960, 600),
+        js_api=Api(),
     )
     webview.start()
 

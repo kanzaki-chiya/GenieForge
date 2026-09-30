@@ -12,20 +12,19 @@
             :type="col.type"
             :model-value="row[col.key]"
             :meta-name="col.metaName"
-            @update:model-value="(v: unknown) => update($index, col.key, v)"
-            @commit="() => commit($index, col.key)"
+            @commit="(v: unknown) => emit('cell-commit', { rowIndex: $index, colKey: col.key, value: v })"
           />
         </template>
       </el-table-column>
       <el-table-column label="" width="40" align="center">
         <template #default="{ $index }">
-          <span class="del" @click="remove($index)">✕</span>
+          <span class="del" @click="emit('remove-row', $index)">✕</span>
         </template>
       </el-table-column>
     </el-table>
     <div class="actions">
-      <el-button size="small" @click="add">+ Add</el-button>
-      <el-button size="small" @click="insertFirst">Insert New</el-button>
+      <el-button size="small" @click="emit('add-row')">+ Add</el-button>
+      <el-button size="small" @click="emit('insert-row', 0)">Insert New</el-button>
     </div>
   </div>
 </template>
@@ -33,37 +32,11 @@
 <script setup lang="ts">
 import FieldControl from './FieldControl.vue'
 
-const props = defineProps<{
+defineProps<{
   columns: { key: string; label: string; type: string; metaName?: string; width?: number }[]
   modelValue: Record<string, unknown>[]
-  template: () => Record<string, unknown>
 }>()
-const emit = defineEmits(['update:modelValue', 'update-row', 'add-row', 'remove-row'])
-
-function update(rowIndex: number, colKey: string, value: unknown) {
-  const rows = props.modelValue.map((r, i) =>
-    i === rowIndex ? { ...r, [colKey]: value } : r
-  )
-  emit('update:modelValue', rows)
-}
-
-function commit(rowIndex: number, colKey: string) {
-  emit('update-row', { rowIndex, colKey, row: props.modelValue[rowIndex] })
-}
-
-function add() {
-  emit('update:modelValue', [...props.modelValue, props.template()])
-  emit('add-row', props.modelValue.length)
-}
-
-function insertFirst() {
-  emit('update:modelValue', [props.template(), ...props.modelValue])
-}
-
-function remove(index: number) {
-  emit('update:modelValue', props.modelValue.filter((_, i) => i !== index))
-  emit('remove-row', index)
-}
+const emit = defineEmits(['cell-commit', 'add-row', 'insert-row', 'remove-row'])
 </script>
 
 <style scoped>

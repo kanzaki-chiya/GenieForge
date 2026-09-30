@@ -28,8 +28,8 @@
     <el-card shadow="never" style="margin-top: 12px">
       <template #header>操作</template>
       <el-form inline>
-        <el-form-item label="dat 路径" style="width: 480px">
-          <el-input v-model="datPath" placeholder="empires2_x2_p1.dat 路径" />
+        <el-form-item label="dat 路径" style="width: 520px">
+          <FilePicker v-model="datPath" placeholder="empires2_x2_p1.dat 路径" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" @click="load">加载</el-button>
@@ -47,6 +47,7 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
+import FilePicker from '../components/FilePicker.vue'
 
 const health = ref<any>(null)
 const datInfo = ref<any>(null)
