@@ -7,6 +7,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
+from ..core.subtable import rows_to_dicts
 from ..core.unit_index import summarize_unit, unit_index
 from ..deps import dat_core, require_dat
 
@@ -59,6 +60,94 @@ def get_main_unit(unit_id: int):
     return summarize_unit(u, unit_id)
 
 
+def _detail(u, civ: int, unit_id: int) -> dict:
+    """单位完整结构（供 AGE 式编辑，含子表 dict 列表）。"""
+    t50 = getattr(u, "type_50", None)
+    cr = getattr(u, "creatable", None)
+    bd = getattr(u, "building", None)
+
+    def g(obj, name, default=None):
+        return getattr(obj, name, default) if obj is not None else default
+
+    return {
+        "civ": civ,
+        "civ_name": None,
+        "unit_id": unit_id,
+        "present": True,
+        # 基础
+        "name": u.name,
+        "type": u.type,
+        "class": u.class_,
+        "id": u.id,
+        "copy_id": u.copy_id,
+        "base_id": u.base_id,
+        # 语言
+        "language_dll_name": u.language_dll_name,
+        "language_dll_creation": u.language_dll_creation,
+        "language_dll_help": u.language_dll_help,
+        "language_dll_hotkey_text": u.language_dll_hotkey_text,
+        # 统计
+        "hit_points": u.hit_points,
+        "speed": u.speed,
+        "line_of_sight": u.line_of_sight,
+        "garrison_capacity": u.garrison_capacity,
+        # 战斗
+        "base_armor": g(t50, "base_armor", 0),
+        "max_range": g(t50, "max_range", 0),
+        "min_range": g(t50, "min_range", 0),
+        "reload_time": g(t50, "reload_time", 0),
+        "bonus_damage_resistance": g(t50, "bonus_damage_resistance", 0),
+        "attacks": rows_to_dicts(g(t50, "attacks", [])),
+        "armors": rows_to_dicts(g(t50, "armours", [])),
+        # 投射物
+        "projectile_unit_id": g(t50, "projectile_unit_id", -1),
+        # 费用 / 存储
+        "resource_costs": rows_to_dicts(g(cr, "resource_costs", [])),
+        "resource_storages": rows_to_dicts(u.resource_storages),
+        "train_locations": rows_to_dicts(g(cr, "train_locations", [])),
+        # 图形
+        "icon_id": u.icon_id,
+        "special_graphic": g(cr, "special_graphic", -1),
+        "standing_graphic": list(u.standing_graphic),
+        "dying_graphic": u.dying_graphic,
+        "undead_graphic": u.undead_graphic,
+        "damage_graphics": rows_to_dicts(u.damage_graphics),
+        # 属性
+        "enabled": u.enabled,
+        "disabled": u.disabled,
+        "hide_in_editor": u.hide_in_editor,
+        "hero_mode": g(cr, "hero_mode", 0),
+        "interaction_mode": u.interaction_mode,
+        "combat_level": u.combat_level,
+        "sort_number": u.sort_number,
+        "fog_visibility": u.fog_visibility,
+        "minimap_mode": u.minimap_mode,
+        "minimap_color": u.minimap_color,
+        "resource_capacity": u.resource_capacity,
+        "resource_decay": u.resource_decay,
+        "blast_defense_level": u.blast_defense_level,
+        "interface_kind": u.interface_kind,
+        "trait": u.trait,
+        "civilization": u.civilization,
+        # 放置 / 地形
+        "placement_terrain": list(u.placement_terrain),
+        "placement_side_terrain": list(u.placement_side_terrain),
+        "terrain_restriction": u.terrain_restriction,
+        "foundation_terrain_id": g(bd, "foundation_terrain_id", -1),
+        # 碰撞 / 选择
+        "collision_size_x": u.collision_size_x,
+        "collision_size_y": u.collision_size_y,
+        "collision_size_z": u.collision_size_z,
+        "outline_size_x": u.outline_size_x,
+        "outline_size_y": u.outline_size_y,
+        "clearance_size": list(u.clearance_size),
+        "obstruction_type": u.obstruction_type,
+        "obstruction_class": u.obstruction_class,
+        "selection_effect": u.selection_effect,
+        "editor_selection_colour": u.editor_selection_colour,
+    }
+
+
 @router.get("/{civ}/{unit_id}")
 def get_civ_unit(civ: int, unit_id: int):
     """某文明对某单位的覆盖（完整属性）。"""
@@ -72,7 +161,9 @@ def get_civ_unit(civ: int, unit_id: int):
     u = c.units[unit_id]
     if u is None:
         return {"civ": civ, "unit_id": unit_id, "present": False}
-    return {**summarize_unit(u, unit_id), "civ": civ, "civ_name": c.name}
+    detail = _detail(u, civ, unit_id)
+    detail["civ_name"] = c.name
+    return detail
 
 
 @router.patch("/{civ}/{unit_id}")

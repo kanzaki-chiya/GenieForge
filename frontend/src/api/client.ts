@@ -51,6 +51,9 @@ export const api = {
   civs: () => request('/api/civs'),
   civDetail: (id: number) => request(`/api/civs/${id}`),
   units: (civ: number, q?: string) => request('/api/units' + qs({ civ, q })),
+  unitDetail: (civ: number, unitId: number) => request(`/api/units/${civ}/${unitId}`),
+  patchUnit: (civ: number, unitId: number, body: Record<string, unknown>) =>
+    request(`/api/units/${civ}/${unitId}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
   // 搜索 / 名称 / 引用
   search: (q: string) => request('/api/search' + qs({ q })),
