@@ -12,7 +12,7 @@
       />
       <el-button size="small" @click="fetch">搜索</el-button>
       <span class="count">共 {{ total }} 条 · 当前 #{{ currentId }}</span>
-      <el-button size="small" :disabled="!detail" @click="diffVisible = true">对比</el-button>
+      <el-button size="small" :disabled="!detail" @click="openCompare">对比</el-button>
     </div>
 
     <div class="body">
@@ -133,6 +133,9 @@ import FieldControl from '../components/FieldControl.vue'
 import SubTable from '../components/SubTable.vue'
 import Field from '../components/Field.vue'
 import DiffDrawer from '../components/DiffDrawer.vue'
+import { useCompare } from '../composables/useCompare'
+
+const compare = useCompare()
 
 const rows = ref<any[]>([])
 const total = ref(0)
@@ -147,6 +150,14 @@ const router = useRouter()
 function jumpTo(path: string, id: number) {
   if (id == null || id < 0) return
   router.push({ path, query: { id: String(id) } })
+}
+
+function openCompare() {
+  if (!compare.state.active || !compare.state.loaded) {
+    ElMessage.info('请先在顶部开启对比模式并加载目标文件')
+    return
+  }
+  diffVisible.value = true
 }
 const diffVisible = ref(false)
 

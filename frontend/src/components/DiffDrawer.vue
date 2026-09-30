@@ -1,44 +1,44 @@
 <template>
-  <el-drawer v-model="visible" :title="`对比：${title}`" size="46%" direction="rtl">
-    <div v-if="!target" class="empty">
-      <el-empty description="请先选择目标 dat 文件" />
-      <div style="text-align: center">
-        <FilePicker v-model="targetPath" placeholder="目标 dat 路径" />
-        <el-button type="primary" size="small" style="margin-left: 8px" :loading="loading" @click="loadTarget">加载目标</el-button>
-      </div>
+  <el-drawer :model-value="modelValue" :title="`对比：${title}`" size="46%" direction="rtl" @update:model-value="$emit('update:modelValue', $event)">
+    <div v-if="loading" class="empty">
+      <el-empty description="加载目标中…" />
     </div>
-
-    <div v-else-if="diffs.length === 0" class="empty">
-      <el-empty description="无差异" />
+    <div v-else-if="!target" class="empty">
+      <el-empty description="未加载目标实体" />
     </div>
-
-    <div v-else class="diff-list">
+    <div v-else class="diff-form">
       <div class="summary">
-        共 {{ diffs.length }} 处差异
-        <el-button size="small" style="margin-left: 12px" @click="applyAll">应用全部</el-button>
+        <span v-if="diffCount > 0" class="sum-badge">{{ diffCount }} 处差异</span>
+        <span v-else class="sum-none">无差异</span>
+        <el-button v-if="diffCount > 0" size="small" type="primary" style="margin-left: 12px" @click="applyAll">应用全部</el-button>
       </div>
 
-      <div v-for="d in diffs" :key="d.id" class="diff-item" :class="d.kind">
-        <div class="diff-head">
-          <span class="diff-label">{{ d.label }}</span>
-          <span class="diff-kind">{{ kindText(d.kind) }}</span>
-          <el-button size="small" type="primary" @click="apply(d)">应用</el-button>
-        </div>
-        <div class="diff-body">
-          <span class="base-val">{{ formatVal(d.base) }}</span>
+      <div v-for="f in scalarFields" :key="f.key" class="row" :class="{ diff: isDiff(f.key) }">
+        <span class="label">{{ f.label }}</span>
+        <span class="base">{{ fmt(baseline[f.key]) }}</span>
+        <span class="arrow">→</span>
+        <span class="target">{{ fmt(target[f.key]) }}</span>
+        <el-button v-if="isDiff(f.key)" size="small" type="primary" @click="applyField(f.key)">应用</el-button>
+      </div>
+
+      <div v-for="lf in listFields" :key="lf.key" class="sub">
+        <div class="sub-title">{{ lf.label }}（{{ listLen(lf.key) }} 条）</div>
+        <div v-for="(it, i) in listItems(lf.key)" :key="i" class="row" :class="{ added: it.kind === 'added', removed: it.kind === 'removed', diff: it.kind === 'modified' }">
+          <span class="label">{{ it.kind === 'added' ? '+' : it.kind === 'removed' ? '−' : '~' }} #{{ it.index }}</span>
+          <span class="base">{{ it.base == null ? '—' : fmt(it.base) }}</span>
           <span class="arrow">→</span>
-          <span class="target-val">{{ formatVal(d.target) }}</span>
+          <span class="target">{{ it.target == null ? '—' : fmt(it.target) }}</span>
+          <el-button size="small" type="primary" @click="applyList(lf.key, it)">应用</el-button>
         </div>
+        <div v-if="listItems(lf.key).length === 0" class="row"><span class="label">无差异</span></div>
       </div>
     </div>
   </el-drawer>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, ref, watch } from 'vue'
 import { api } from '../api/client'
-import FilePicker from './FilePicker.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -52,123 +52,122 @@ const props = defineProps<{
 }>()
 const emit = defineEmits(['update:modelValue', 'apply'])
 
-const visible = computed({
-  get: () => props.modelValue,
-  set: (v) => emit('update:modelValue', v)
-})
-
-const targetPath = ref('')
 const target = ref<Record<string, unknown> | null>(null)
 const loading = ref(false)
 
-interface DiffItem {
-  id: string
-  kind: 'modified' | 'added' | 'removed'
-  label: string
-  field: string
-  base: unknown
-  target: unknown
-}
-
-const diffs = ref<DiffItem[]>([])
-
-async function loadTarget() {
-  if (!targetPath.value) return
+async function load() {
   loading.value = true
   try {
-    await api.diffLoadTarget(targetPath.value)
-    const r: any = await api.diffEntity(props.table, props.entityId, props.civ || 0)
-    target.value = r
-    computeDiffs()
-  } catch (e: any) {
-    ElMessage.error(e.message)
+    target.value = await api.diffEntity(props.table, props.entityId, props.civ || 0)
+  } catch {
+    target.value = null
   } finally {
     loading.value = false
   }
 }
 
+watch(
+  () => [props.modelValue, props.entityId],
+  () => {
+    if (props.modelValue) load()
+  }
+)
+
 function eq(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
-function computeDiffs() {
-  const out: DiffItem[] = []
-  // 标量字段
-  for (const f of props.scalarFields) {
-    const b = props.baseline[f.key]
-    const t = target.value?.[f.key]
-    if (!eq(b, t)) {
-      out.push({ id: f.key, kind: 'modified', label: f.label, field: f.key, base: b, target: t })
-    }
-  }
-  // 子表字段（条目级：新增/删除/修改）
-  for (const f of props.listFields) {
-    const bl = (props.baseline[f.key] as unknown[]) || []
-    const tl = (target.value?.[f.key] as unknown[]) || []
-    // 删除：基准有、目标无
-    for (let i = 0; i < bl.length; i++) {
-      if (!tl.some((x) => eq(x, bl[i]))) {
-        out.push({ id: `${f.key}:removed:${i}`, kind: 'removed', label: `${f.label}[${i}]`, field: f.key, base: bl[i], target: null })
-      }
-    }
-    // 新增：目标有、基准无
-    for (let i = 0; i < tl.length; i++) {
-      if (!bl.some((x) => eq(x, tl[i]))) {
-        out.push({ id: `${f.key}:added:${i}`, kind: 'added', label: `${f.label}[${i}]`, field: f.key, base: null, target: tl[i] })
-      }
-    }
-  }
-  diffs.value = out
+function isDiff(key: string): boolean {
+  return !eq(props.baseline[key], target.value?.[key])
 }
 
-function kindText(kind: string) {
-  return { modified: '修改', added: '新增', removed: '删除' }[kind] || kind
+const diffCount = computed(() => {
+  if (!target.value) return 0
+  let n = scalarFields.filter((f) => isDiff(f.key)).length
+  for (const lf of props.listFields) {
+    n += listItems(lf.key).length
+  }
+  return n
+})
+
+const scalarFields = props.scalarFields
+const baseline = props.baseline
+const listFields = props.listFields
+
+interface ListItem {
+  kind: 'modified' | 'added' | 'removed'
+  index: number
+  base: unknown
+  target: unknown
 }
 
-function formatVal(v: unknown): string {
+function listItems(key: string): ListItem[] {
+  const bl = (props.baseline[key] as unknown[]) || []
+  const tl = (target.value?.[key] as unknown[]) || []
+  const out: ListItem[] = []
+  for (let i = 0; i < bl.length; i++) {
+    if (!tl.some((x) => eq(x, bl[i]))) {
+      out.push({ kind: 'removed', index: i, base: bl[i], target: null })
+    }
+  }
+  for (let i = 0; i < tl.length; i++) {
+    if (!bl.some((x) => eq(x, tl[i]))) {
+      out.push({ kind: 'added', index: i, base: null, target: tl[i] })
+    }
+  }
+  return out
+}
+
+function fmt(v: unknown): string {
   if (v === null || v === undefined) return '—'
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
 }
 
-async function apply(d: DiffItem) {
-  // 子表差异：整体替换（基准列表 + 增删目标条目）
-  if (props.listFields.some((f) => f.key === d.field)) {
-    let rows = [...((props.baseline[d.field] as unknown[]) || [])]
-    if (d.kind === 'added') {
-      rows = [...rows, d.target]
-    } else if (d.kind === 'removed') {
-      rows = rows.filter((x, i) => i !== Number(d.id.split(':').pop()))
-    }
-    emit('apply', { field: d.field, value: rows, list: true })
-  } else {
-    emit('apply', { field: d.field, value: d.target, list: false })
+function listLen(key: string): number {
+  return ((target.value?.[key] as unknown[]) || []).length
+}
+
+async function applyField(key: string) {
+  emit('apply', { field: key, value: target.value?.[key], list: false })
+}
+
+async function applyList(key: string, it: ListItem) {
+  let rows = [...((props.baseline[key] as unknown[]) || [])]
+  if (it.kind === 'added') {
+    rows = [...rows, it.target]
+  } else if (it.kind === 'removed') {
+    rows = rows.filter((_, i) => i !== it.index)
   }
+  emit('apply', { field: key, value: rows, list: true })
 }
 
 async function applyAll() {
-  for (const d of diffs.value) {
-    await apply(d)
+  for (const f of props.scalarFields) {
+    if (isDiff(f.key)) await applyField(f.key)
+  }
+  for (const lf of props.listFields) {
+    for (const it of listItems(lf.key)) await applyList(lf.key, it)
   }
 }
 </script>
 
 <style scoped>
 .empty { padding: 24px; }
-.diff-list { padding: 0 4px; }
-.summary { color: #9a9a9a; font-size: 12px; padding: 8px 4px 12px; }
-.diff-item { border: 1px solid #34373a; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; }
-.diff-item.modified { background: #2e2918; }
-.diff-item.added { background: #1c2e20; }
-.diff-item.removed { background: #2e1a1a; }
-.diff-head { display: flex; align-items: center; gap: 8px; }
-.diff-label { font-weight: 600; font-size: 13px; color: #e6e6e6; }
-.diff-kind { font-size: 11px; padding: 1px 8px; border-radius: 3px; }
-.modified .diff-kind { background: #3c2f12; color: #f5c542; }
-.added .diff-kind { background: #1e3a2a; color: #8ae0a8; }
-.removed .diff-kind { background: #3a1e1e; color: #ff8a8a; }
-.diff-body { margin-top: 6px; font-family: var(--font-mono); font-size: 12px; display: flex; gap: 10px; align-items: center; }
-.base-val { color: #ff8a8a; text-decoration: line-through; }
-.target-val { color: #8ae0a8; }
+.diff-form { padding: 0 4px; }
+.summary { padding: 8px 4px 12px; display: flex; align-items: center; }
+.sum-badge { color: #f5c542; font-size: 12px; }
+.sum-none { color: #8ae0a8; font-size: 12px; }
+.row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 4px; font-size: 12px; }
+.row.diff { background: #2e2918; }
+.row.added { background: #1c2e20; }
+.row.removed { background: #2e1a1a; }
+.label { width: 120px; color: #9a9a9a; flex-shrink: 0; }
+.base { color: #d4d4d4; }
+.diff .base { color: #ff8a8a; text-decoration: line-through; }
+.target { color: #d4d4d4; }
+.diff .target, .added .target { color: #8ae0a8; }
 .arrow { color: #9a9a9a; }
+.sub { margin-top: 10px; }
+.sub-title { color: #e6e6e6; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
 </style>
