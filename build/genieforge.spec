@@ -49,6 +49,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
+    icon=os.path.join(SPECPATH, 'icon.ico'),
 )
 
 coll = COLLECT(
