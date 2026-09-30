@@ -12,6 +12,7 @@
       />
       <el-button size="small" @click="fetch">搜索</el-button>
       <span class="count">共 {{ total }} 条 · 当前 #{{ currentId }}</span>
+      <el-button size="small" :disabled="!detail" @click="diffVisible = true">对比</el-button>
     </div>
 
     <div class="body">
@@ -104,6 +105,18 @@
         <el-empty description="选择左侧科技查看详情" />
       </div>
     </div>
+
+    <DiffDrawer
+      v-if="detail"
+      v-model="diffVisible"
+      :table="'techs'"
+      :entity-id="detail.id"
+      :title="detail.name"
+      :baseline="detail"
+      :scalar-fields="scalarFields"
+      :list-fields="listFields"
+      @apply="onApplyDiff"
+    />
   </div>
 </template>
 
@@ -115,6 +128,7 @@ import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import SubTable from '../components/SubTable.vue'
 import Field from '../components/Field.vue'
+import DiffDrawer from '../components/DiffDrawer.vue'
 
 const rows = ref<any[]>([])
 const total = ref(0)
@@ -123,6 +137,24 @@ const pageSize = 50
 const q = ref('')
 const detail = ref<any>(null)
 const currentId = ref(-1)
+const diffVisible = ref(false)
+
+const scalarFields = [
+  { key: 'name', label: '名称' },
+  { key: 'type', label: '类型' },
+  { key: 'civ', label: '文明' },
+  { key: 'repeatable', label: '可重复' },
+  { key: 'full_tech_mode', label: 'Full Tech Mode' },
+  { key: 'icon_id', label: '图标' },
+  { key: 'effect_id', label: '效果' },
+  { key: 'language_dll_name', label: '语言名' },
+  { key: 'language_dll_description', label: '描述' },
+  { key: 'language_dll_help', label: '帮助' },
+  { key: 'language_dll_tech_tree', label: '科技树' },
+  { key: 'required_techs', label: '前置科技' },
+  { key: 'resource_costs', label: '费用' }
+]
+const listFields = [{ key: 'research_locations', label: '研究位置' }]
 
 const techItems = ref<{ value: number; label: string }[]>([])
 const effectItems = ref<{ value: number; label: string }[]>([])
@@ -203,6 +235,14 @@ async function saveTable(field: string, rows: unknown[]) {
     ElMessage.success({ message: `${field} 已更新`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
+  }
+}
+
+function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
+  if (p.list) {
+    saveTable(p.field, p.value as unknown[])
+  } else {
+    save(p.field, p.value)
   }
 }
 

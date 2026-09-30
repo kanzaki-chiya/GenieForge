@@ -68,6 +68,12 @@ export const api = {
   // 枚举元数据
   meta: (name: string) => request(`/api/meta/${name}`),
 
+  // diff 目标对比
+  diffLoadTarget: (path: string) =>
+    request('/api/diff/target/load', { method: 'POST', body: JSON.stringify({ path }) }),
+  diffEntity: (table: string, id: number, civ?: number) =>
+    request(`/api/diff/target/entity/${table}/${id}` + (civ != null ? qs({ civ }) : '')),
+
   // 批量 / 对比 / 补丁
   batchPreview: (targets: unknown[], ops: unknown[]) =>
     request('/api/batch/preview', { method: 'POST', body: JSON.stringify({ targets, ops }) }),
