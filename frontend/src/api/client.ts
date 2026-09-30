@@ -83,6 +83,12 @@ export const api = {
     request('/api/diff', { method: 'POST', body: JSON.stringify({ base, target }) }),
   patchApply: (patch: string) =>
     request('/api/patch/apply', { method: 'POST', body: JSON.stringify({ patch }) }),
+  patchPreview: (patch: string) =>
+    request('/api/patch/preview', { method: 'POST', body: JSON.stringify({ patch }) }),
+  patchList: () => request('/api/patch/list'),
+  patchSave: (name: string, content: string) =>
+    request('/api/patch/save', { method: 'POST', body: JSON.stringify({ name, content }) }),
+  patchDelete: (name: string) => request(`/api/patch/${name}`, { method: 'DELETE' }),
   patchGenerate: (base: string, target: string) =>
     request('/api/patch/generate', { method: 'POST', body: JSON.stringify({ base, target }) }),
 

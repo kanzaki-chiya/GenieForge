@@ -103,18 +103,20 @@ def resolve_target(dat, target: dict) -> list[int]:
 
 
 # --------------------------------------------------------------------------- 应用
-def _apply_op(obj, field: str, op: str, value):
-    """对单个目标应用一条 op，返回 (status, old, new)。"""
+def _apply_op(obj, field: str, op: str, value, dry_run: bool = False):
+    """对单个目标应用一条 op，返回 (status, old, new)。dry_run 时不落库。"""
     cur = get_field(obj, field)
 
     if op == "set":
-        set_field(obj, field, value)
+        if not dry_run:
+            set_field(obj, field, value)
         return ("applied", cur, value)
 
     if op in ("add", "relative", "multiply"):
         if isinstance(cur, (int, float)) and isinstance(value, (int, float)):
             new = cur + value if op != "multiply" else cur * value
-            set_field(obj, field, new)
+            if not dry_run:
+                set_field(obj, field, new)
             return ("applied", cur, new)
         return ("unsupported", None, None)
 
@@ -125,21 +127,26 @@ def _apply_op(obj, field: str, op: str, value):
         else:
             lst = [x for x in lst if x != value]
         new = tuple(lst) if isinstance(cur, tuple) else lst
-        set_field(obj, field, new)
+        if not dry_run:
+            set_field(obj, field, new)
         return ("applied", cur, new)
 
     if op == "rule":
         fn = RULES.get(value)
         if fn is None:
             return ("unsupported", None, None)
-        fn(obj, field)
+        if not dry_run:
+            fn(obj, field)
         return ("applied", None, None)  # rule 不做自动撤销
 
     return ("unsupported", None, None)
 
 
-def apply(dat, patch_text: str) -> dict:
-    """应用语义补丁，返回 ApplyReport（成功数 / 冲突 / 跳过 + 明细）。"""
+def apply(dat, patch_text: str, dry_run: bool = False) -> dict:
+    """应用语义补丁，返回 ApplyReport（成功数 / 冲突 / 跳过 + 明细）。
+
+    dry_run=True 时仅预览命中情况与旧值/新值，不修改数据、不入命令栈。
+    """
     spec = parse(patch_text)
     report = {"based_on": spec.get("based_on"), "results": []}
     mutations: list[tuple] = []  # (obj, field, old, new)
@@ -166,14 +173,14 @@ def apply(dat, patch_text: str) -> dict:
             report["results"].append({"name": name, "status": "missing"})
             continue
         norm_field = _normalize_field(obj, field or "")
-        status, old, new = _apply_op(obj, norm_field, op, value)
-        result = {"name": name, "status": status, "id": hits[0]}
-        if old is not None:
+        status, old, new = _apply_op(obj, norm_field, op, value, dry_run)
+        result = {"name": name, "status": status, "id": hits[0], "field": norm_field, "old": old, "new": new}
+        if not dry_run and old is not None:
             mutations.append((obj, norm_field, old, new))
         report["results"].append(result)
 
     # 常规 op 入命令栈（整体撤销）
-    if mutations:
+    if not dry_run and mutations:
         def undo():
             for obj, field, old, _ in reversed(mutations):
                 set_field(obj, field, old)
