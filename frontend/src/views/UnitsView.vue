@@ -32,10 +32,16 @@
           height="100%"
           @current-change="onSelect"
         >
-          <el-table-column prop="unit_id" label="ID" width="64" />
-          <el-table-column prop="name" label="名称" />
-          <el-table-column prop="type" label="类型" width="56" />
+          <el-table-column label="单位" :formatter="formatUnit" />
         </el-table>
+        <el-pagination
+          v-model:current-page="page"
+          :page-size="pageSize"
+          :total="total"
+          layout="prev, pager, next, total"
+          size="small"
+          @current-change="fetch"
+        />
       </div>
 
       <div class="form" v-if="detail && detail.present">
@@ -153,9 +159,17 @@ const civItems = ref<{ value: number; label: string }[]>([])
 const civ = ref(0)
 const civName = ref('')
 const rows = ref<any[]>([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = 500
 const detail = ref<any>(null)
 const currentUnit = ref(-1)
 const q = ref('')
+
+function formatUnit(row: any) {
+  const cls = row.class != null ? ` C ${row.class}` : ''
+  return `${row.unit_id} -${cls}, ${row.name}`
+}
 
 const attackCols = [
   { key: 'class_', label: '类别', type: 'enum', metaName: 'armors', width: 150 },
@@ -190,8 +204,9 @@ async function switchCiv(id: number) {
 }
 
 async function fetch() {
-  const r: any = await api.units(civ.value, q.value || undefined)
+  const r: any = await api.units(civ.value, q.value || undefined, page.value, pageSize)
   rows.value = r.items
+  total.value = r.total
 }
 
 async function onSelect(row: any) {

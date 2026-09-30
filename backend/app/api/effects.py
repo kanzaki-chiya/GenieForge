@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from ... import metadata
+from ..core.effect_commands import command_params, describe_command
 from ..core.names import name_resolver
 from ..deps import dat_core, require_dat
 
@@ -52,6 +53,8 @@ def get_effect(effect_id: int):
                 "b": ec.b,
                 "c": ec.c,
                 "d": ec.d,
+                "description": describe_command(ec, d),
+                "params": command_params(ec.type),
             }
             for ec in e.effect_commands
         ],

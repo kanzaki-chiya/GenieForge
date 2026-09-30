@@ -19,7 +19,8 @@ def list_units(
     civ: int = Query(..., description="文明 id"),
     q: str | None = None,
     only_present: bool = Query(True, description="仅返回非空单位槽位"),
-    limit: int = Query(200, ge=1, le=1000),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(500, ge=1, le=5000),
 ):
     core = require_dat()
     d = core.get()
@@ -34,20 +35,24 @@ def list_units(
             items.append({"unit_id": uid, "name": None, "present": False})
             continue
         name = getattr(u, "name", None) or ""
-        if q and q.lower() not in name.lower():
-            continue
+        if q:
+            ql = q.lower()
+            marker = f"c {getattr(u, 'class_', '')}"
+            if ql not in name.lower() and ql not in str(uid) and ql not in marker:
+                continue
         items.append(
             {
                 "unit_id": uid,
                 "name": name,
                 "type": getattr(u, "type", None),
+                "class": getattr(u, "class_", None),
                 "hit_points": getattr(u, "hit_points", None),
                 "present": True,
             }
         )
-        if len(items) >= limit:
-            break
-    return {"civ": civ, "civ_name": c.name, "total": len(items), "items": items}
+    total = len(items)
+    start = (page - 1) * page_size
+    return {"civ": civ, "civ_name": c.name, "total": total, "items": items[start : start + page_size]}
 
 
 @router.get("/{unit_id}")

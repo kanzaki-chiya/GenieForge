@@ -41,3 +41,15 @@ def terrain_table_name(table_id: int) -> str | None:
 
 def civ_resource_name(resource_id: int) -> str | None:
     return load("civ_resources").get(str(resource_id))
+
+
+def effect_attribute(attr_id: int) -> str | None:
+    return load("effect_attributes").get(str(attr_id))
+
+
+def unit_type(type_id: int) -> str | None:
+    return load("unit_types").get(str(type_id))
+
+
+def tech_type(type_id: int) -> str | None:
+    return load("tech_types").get(str(type_id))

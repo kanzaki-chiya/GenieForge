@@ -14,6 +14,7 @@ router = APIRouter(prefix="/meta", tags=["meta"])
 _META_NAMES = {
     "resource-types": "resource_types",
     "effect-types": "effect_types",
+    "effect-attributes": "effect_attributes",
     "armors": "armors",
     "civ-resources": "civ_resources",
     "terrain-tables": "terrain_tables",

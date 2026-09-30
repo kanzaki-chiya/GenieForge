@@ -19,14 +19,11 @@ class Config:
     @staticmethod
     def _defaults() -> dict:
         return {
-            "game_dir": None,
+            "language_file": None,
             "language": "zh-CN",
-            "port": 8342,
-            "api_key": None,
             "update_channel": "stable",
             "auto_update": True,
-            "github_repo": "qqxyfb/GenieForge",
-            "github_token": None,
+            "auto_save": False,
             "project_dir": "patches",
         }
 

@@ -11,8 +11,7 @@ router = APIRouter(prefix="/update", tags=["update"])
 
 @router.get("/check")
 def check_update():
-    repo = app_config.get("github_repo", "qqxyfb/GenieForge")
-    return updater.check_update(__version__, repo)
+    return updater.check_update(__version__, "qqxyfb/GenieForge")
 
 
 @router.post("/download")

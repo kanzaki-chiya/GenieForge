@@ -54,7 +54,8 @@ export const api = {
   civDetail: (id: number) => request(`/api/civs/${id}`),
   patchCiv: (id: number, body: Record<string, unknown>) =>
     request(`/api/civs/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  units: (civ: number, q?: string) => request('/api/units' + qs({ civ, q })),
+  units: (civ: number, q?: string, page?: number, pageSize?: number) =>
+    request('/api/units' + qs({ civ, q, page, page_size: pageSize })),
   unitDetail: (civ: number, unitId: number) => request(`/api/units/${civ}/${unitId}`),
   patchUnit: (civ: number, unitId: number, body: Record<string, unknown>) =>
     request(`/api/units/${civ}/${unitId}`, { method: 'PATCH', body: JSON.stringify(body) }),

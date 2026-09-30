@@ -18,21 +18,12 @@ from ..schemas import DatLoadRequest, DatSaveRequest
 router = APIRouter(prefix="/dat", tags=["dat"])
 
 
-def _find_language_file(game_dir: str | None) -> Path | None:
-    if not game_dir:
-        return None
-    root = Path(game_dir)
-    if not root.exists():
-        return None
-    for p in root.rglob("key-value-strings-utf8.txt"):
-        return p
-    return None
-
-
 def _try_load_language() -> int:
-    game_dir = app_config.get("game_dir")
-    path = _find_language_file(game_dir)
-    if path is None:
+    lang_file = app_config.get("language_file")
+    if not lang_file:
+        return 0
+    path = Path(lang_file)
+    if not path.exists():
         return 0
     try:
         return name_resolver.load_language_file(str(path))

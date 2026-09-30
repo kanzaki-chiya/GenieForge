@@ -1,33 +1,22 @@
 <template>
-  <div>
+  <div class="settings">
     <h2>设置</h2>
-    <el-form label-width="100px" style="max-width: 520px">
-      <el-form-item label="游戏目录">
-        <el-input v-model="config.game_dir" placeholder="AoE2 DE 安装目录（用于定位语言文件）" />
+    <el-form label-width="110px" style="max-width: 560px">
+      <el-form-item label="语言文件">
+        <FilePicker v-model="config.language_file" placeholder="key-value-strings-utf8.txt（用于显示中文名）" />
       </el-form-item>
-      <el-form-item label="语言">
+      <el-form-item label="界面语言">
         <el-select v-model="config.language">
           <el-option label="简体中文" value="zh-CN" />
           <el-option label="English" value="en" />
         </el-select>
       </el-form-item>
-      <el-form-item label="端口">
-        <el-input-number v-model="config.port" :min="1" :max="65535" />
-      </el-form-item>
-      <el-form-item label="更新通道">
-        <el-select v-model="config.update_channel">
-          <el-option label="稳定版" value="stable" />
-          <el-option label="预发布" value="prerelease" />
-        </el-select>
+      <el-form-item label="自动保存">
+        <el-switch v-model="config.auto_save" />
+        <span class="hint">开启后每次修改自动写回 dat 文件</span>
       </el-form-item>
       <el-form-item label="自动更新">
         <el-switch v-model="config.auto_update" />
-      </el-form-item>
-      <el-form-item label="GitHub 仓库">
-        <el-input v-model="config.github_repo" placeholder="owner/repo" />
-      </el-form-item>
-      <el-form-item label="API Key">
-        <el-input v-model="config.api_key" placeholder="留空则不鉴权；设置后写操作需 X-API-Key" show-password />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="loading" @click="save">保存</el-button>
@@ -40,15 +29,13 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
+import FilePicker from '../components/FilePicker.vue'
 
 const config = reactive({
-  game_dir: '',
+  language_file: '',
   language: 'zh-CN',
-  port: 8342,
-  update_channel: 'stable',
-  auto_update: true,
-  github_repo: '',
-  api_key: ''
+  auto_save: false,
+  auto_update: true
 })
 const loading = ref(false)
 
@@ -71,3 +58,8 @@ async function save() {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.settings { padding: 16px; }
+.hint { margin-left: 12px; color: #9a9a9a; font-size: 12px; }
+</style>

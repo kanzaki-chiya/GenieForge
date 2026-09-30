@@ -14,14 +14,11 @@ class DatSaveRequest(BaseModel):
 
 
 class ConfigModel(BaseModel):
-    game_dir: Optional[str] = None
+    language_file: Optional[str] = None
     language: str = "zh-CN"
-    port: int = 8342
-    api_key: Optional[str] = None
     update_channel: str = "stable"
     auto_update: bool = True
-    github_repo: str = "qqxyfb/GenieForge"
-    github_token: Optional[str] = None
+    auto_save: bool = False
     project_dir: str = "patches"
 
 

@@ -57,7 +57,10 @@
           </div>
           <div class="grid4">
             <Field label="Effect">
-              <EnumSelect :preloaded="effectItems" :model-value="detail.effect_id" @change="(v) => save('effect_id', v)" />
+              <div class="jump-wrap">
+                <EnumSelect :preloaded="effectItems" :model-value="detail.effect_id" @change="(v) => save('effect_id', v)" />
+                <el-button size="small" @click="jumpTo('/effects', detail.effect_id)">→</el-button>
+              </div>
             </Field>
             <Field label="Full Tech Mode">
               <FieldControl type="number" :model-value="detail.full_tech_mode" @commit="(v) => save('full_tech_mode', v)" />
@@ -122,6 +125,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
@@ -137,6 +141,13 @@ const pageSize = 50
 const q = ref('')
 const detail = ref<any>(null)
 const currentId = ref(-1)
+
+const router = useRouter()
+
+function jumpTo(path: string, id: number) {
+  if (id == null || id < 0) return
+  router.push({ path, query: { id: String(id) } })
+}
 const diffVisible = ref(false)
 
 const scalarFields = [
@@ -307,6 +318,13 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px 12px;
+}
+.jump-wrap {
+  display: flex;
+  gap: 4px;
+}
+.jump-wrap :deep(.el-select) {
+  flex: 1;
 }
 .grid6 {
   display: grid;
