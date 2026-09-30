@@ -1,5 +1,5 @@
 <template>
-  <div class="editor">
+  <div class="editor" @keydown.ctrl.67="cp.copy(currentId)" @keydown.ctrl.86="cp.paste(currentId)">
     <div class="toolbar">
       <el-input
         v-model="q"
@@ -11,6 +11,8 @@
       />
       <span class="count">当前 #{{ currentId }} · 资源 {{ detail?.resources?.length || 0 }} 项</span>
       <el-button size="small" :disabled="!detail" @click="openCompare">对比</el-button>
+      <el-button size="small" :disabled="!detail" @click="cp.copy(currentId)">复制</el-button>
+      <el-button size="small" :disabled="!detail" @click="cp.paste(currentId)">粘贴</el-button>
     </div>
 
     <div class="body">
@@ -88,8 +90,10 @@ import FieldControl from '../components/FieldControl.vue'
 import Field from '../components/Field.vue'
 import DiffDrawer from '../components/DiffDrawer.vue'
 import { useCompare } from '../composables/useCompare'
+import { useCopyPaste } from '../composables/useCopyPaste'
 
 const compare = useCompare()
+const cp = useCopyPaste('civs')
 const rows = ref<any[]>([])
 const allRows = ref<any[]>([])
 const detail = ref<any>(null)

@@ -1,5 +1,5 @@
 <template>
-  <div class="editor">
+  <div class="editor" @keydown.ctrl.67="cp.copy(currentId)" @keydown.ctrl.86="cp.paste(currentId)">
     <div class="toolbar">
       <el-input
         v-model="q"
@@ -13,6 +13,8 @@
       <el-button size="small" @click="fetch">搜索</el-button>
       <span class="count">共 {{ total }} 条 · 当前 #{{ currentId }}</span>
       <el-button size="small" :disabled="!detail" @click="openCompare">对比</el-button>
+      <el-button size="small" :disabled="!detail" @click="cp.copy(currentId)">复制</el-button>
+      <el-button size="small" :disabled="!detail" @click="cp.paste(currentId)">粘贴</el-button>
     </div>
 
     <div class="body">
@@ -134,8 +136,10 @@ import SubTable from '../components/SubTable.vue'
 import Field from '../components/Field.vue'
 import DiffDrawer from '../components/DiffDrawer.vue'
 import { useCompare } from '../composables/useCompare'
+import { useCopyPaste } from '../composables/useCopyPaste'
 
 const compare = useCompare()
+const cp = useCopyPaste('techs')
 
 const rows = ref<any[]>([])
 const total = ref(0)
