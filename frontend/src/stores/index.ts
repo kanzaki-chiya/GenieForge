@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '../api/client'
 
+export * from './history'
+
 export interface DatCounts {
   civs?: number
   techs?: number

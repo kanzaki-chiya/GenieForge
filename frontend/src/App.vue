@@ -36,6 +36,10 @@
         </template>
       </div>
 
+      <!-- 中间：全局搜索 -->
+      <div class="topbar-search">
+        <GlobalSearch :disabled="!datInfo?.version" />
+      </div>
       <!-- 顶栏右侧：撤销 / 重做 / 保存 -->
       <div class="actions">
         <button
@@ -168,7 +172,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAppStore } from './stores'
 import { api } from './api/client'
-
+import GlobalSearch from './components/GlobalSearch.vue'
 const route = useRoute()
 const appStore = useAppStore()
 const isActing = ref(false)
@@ -342,13 +346,20 @@ onMounted(async () => {
   box-shadow: 0 0 6px rgba(224, 164, 58, 0.6);
 }
 
+.topbar-search {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
 .actions {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-left: auto;
 }
-
 /* 通用按钮（效果图规范） */
 .btn {
   font: inherit;
