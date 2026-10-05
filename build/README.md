@@ -1,19 +1,43 @@
-# 打包与更新
+# 打包与发布
 
-本目录存放 PyInstaller 配置与更新清单（方案 §3.4）。
+本目录存放 PyInstaller 配置（`genieforge.spec`）与图标。
 
-- `genieforge.spec`：PyInstaller 打包配置（onedir），打包前需先 `npm run build`
-  生成 `frontend/dist`。
-- 更新走 GitHub Releases：Release 附 `.zip`/`.exe` 与 `checksums.txt`（SHA256），
-  应用启动时按 semver 比较并校验哈希后替换重启。
+## 一键打包（Windows）
 
-## 打包流程
+需要 Python 3.11+、Node.js 18+，并已安装依赖：
 
 ```bash
-# 1. 构建前端
-cd frontend && npm install && npm run build
-
-# 2. 打包
-pip install pyinstaller
-pyinstaller build/genieforge.spec
+pip install -r backend/requirements.txt -r desktop/requirements.txt pyinstaller
+cd frontend && npm install && cd ..
 ```
+
+在仓库根目录执行：
+
+```bat
+build.bat 0.4.0                  :: 前端构建 + PyInstaller + zip + checksums
+build.bat 0.4.0 --skip-frontend  :: 跳过前端构建，使用已有的 frontend/dist
+```
+
+也可以用 Python 脚本，流程相同：
+
+```bash
+python scripts/build.py --version 0.4.0 [--skip-frontend]
+```
+
+产物位于 `release/<版本>/`：
+
+- `GenieForge-<版本>-windows.zip`：解压即用的程序目录；
+- `checksums.txt`：各文件的 SHA256。
+
+## 手动打包
+
+```bash
+cd frontend && npm run build && cd ..   # 生成 frontend/dist
+python -m PyInstaller --noconfirm build/genieforge.spec
+```
+
+输出在 `dist/GenieForge/`。
+
+## 发布
+
+把 zip 与 `checksums.txt` 上传到 GitHub Release，tag 使用 `v<版本>`。应用内「检查更新」按 semver 比较最新 Release 的 tag。

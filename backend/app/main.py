@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .api import api_router
-from .auth import api_key_guard
+from .auth import ALLOWED_ORIGINS, local_origin_guard
 
 app = FastAPI(
     title="GenieForge",
@@ -20,16 +20,17 @@ app = FastAPI(
     version=__version__,
 )
 
-# 浏览器模式（Vite dev server）跨域访问
+# 拦截非本机来源的请求（防恶意网页借浏览器调用本地 API，见 auth.py）。
+# 先注册、后执行：CORS 在外层处理预检，来源校验在内层拦截实际请求。
+app.middleware("http")(local_origin_guard)
+
+# 仅允许桌面窗口与 Vite dev server 跨域访问
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 本地鉴权（可选 X-API-Key，保护写操作）
-app.middleware("http")(api_key_guard)
 
 app.include_router(api_router)
 

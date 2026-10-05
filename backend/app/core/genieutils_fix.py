@@ -6,7 +6,7 @@
 三处做 monkey-patch，让字符串字节级透传，实现「字节级无损」往返。
 
 用法：在 load / save 之前调用 :func:`apply`（幂等，可重复调用）。
-本模块内容来自仓库根目录的 PoC ``genie_poc.py`` 中的 ``apply_string_fix()``。
+本模块内容来自 PoC 脚本 ``scripts/genie_poc.py`` 中的 ``apply_string_fix()``。
 """
 
 _applied = False

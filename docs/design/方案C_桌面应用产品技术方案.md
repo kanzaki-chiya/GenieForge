@@ -503,6 +503,6 @@ aoe2-mod-tool/
 
 ## 12. 附：与现有成果的衔接
 
-- `genie_poc.py`（本仓库）：解析/写回/diff 的 PoC，`apply_string_fix()` 直接复用为 `core/genieutils_fix.py`。
+- `scripts/genie_poc.py`（本仓库）：解析/写回/diff 的 PoC，`apply_string_fix()` 直接复用为 `core/genieutils_fix.py`。
 - `工具优化设计方案.md`（本仓库）：三大痛点的可行性分析，本方案是其「C 路线」的落地规格。
 - 你的 `修改清单.txt` / `新的清单.txt`：作为首批补丁的**来源语料**，可逐条转成补丁 DSL 样例。
