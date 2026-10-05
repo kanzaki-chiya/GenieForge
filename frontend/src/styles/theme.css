@@ -44,11 +44,11 @@ html.dark {
 
   /* Element Plus 强调色：金色 */
   --el-color-primary: #e0a43a;
-  --el-color-primary-light-3: #e8b65e;
-  --el-color-primary-light-5: #f0c982;
-  --el-color-primary-light-7: #f7dca6;
-  --el-color-primary-light-8: #fae7c0;
-  --el-color-primary-light-9: #fdf3df;
+  --el-color-primary-light-3: #a27930;
+  --el-color-primary-light-5: #795c29;
+  --el-color-primary-light-7: #503f22;
+  --el-color-primary-light-8: #3b311e;
+  --el-color-primary-light-9: #27221b;
   --el-color-primary-dark-2: #b3832e;
 
   /* 成功 / 警告 / 危险 / 消息色 */
