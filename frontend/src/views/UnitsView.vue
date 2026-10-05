@@ -611,6 +611,7 @@ function registerDetailBaseline(data: any) {
       }
     })
   }
+  historyStore.syncEntity(key, data)
 }
 
 function openCompare() {
@@ -770,6 +771,16 @@ watch(
   }
 )
 
+// 撤销、重做、应用补丁后刷新当前选中单位详情和列表当前页
+watch(
+  () => appStore.dataRevision,
+  async () => {
+    await fetch()
+    if (currentUnit.value >= 0) {
+      await selectUnit(currentUnit.value)
+    }
+  }
+)
 onMounted(async () => {
   await loadCivs()
   if (civs.value.length) {

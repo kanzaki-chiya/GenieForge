@@ -219,6 +219,7 @@ async function handleUndo() {
     const r: any = await api.undo()
     ElMessage.success(`已撤销：${r.description || ''}`)
     await appStore.refreshDatInfo()
+    appStore.bumpRevision()
   } catch (e: any) {
     ElMessage.warning(parseErrorMessage(e))
   } finally {
@@ -233,6 +234,7 @@ async function handleRedo() {
     const r: any = await api.redo()
     ElMessage.success(`已重做：${r.description || ''}`)
     await appStore.refreshDatInfo()
+    appStore.bumpRevision()
   } catch (e: any) {
     ElMessage.warning(parseErrorMessage(e))
   } finally {

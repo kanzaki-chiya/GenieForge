@@ -251,6 +251,7 @@ async function applyPatch() {
       ElMessage.error('补丁有步骤出错，已全部回滚')
     } else {
       ElMessage.success(`已应用：命中 ${r.summary?.applied ?? 0} 条`)
+      appStore.bumpRevision()
     }
   } catch (e: any) {
     ElMessage.error(e.message)

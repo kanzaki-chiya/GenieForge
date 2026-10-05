@@ -353,6 +353,7 @@ function registerDetailBaseline(data: any) {
       }
     })
   }
+  historyStore.syncEntity(key, data)
 }
 
 async function fetch() {
@@ -455,6 +456,16 @@ watch(
   }
 )
 
+// 撤销、重做、应用补丁后刷新当前选中条目详情和列表当前页
+watch(
+  () => appStore.dataRevision,
+  async () => {
+    await fetch()
+    if (currentId.value >= 0) {
+      await selectById(currentId.value)
+    }
+  }
+)
 onMounted(async () => {
   await fetch()
   await loadRefs()

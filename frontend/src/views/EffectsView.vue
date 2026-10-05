@@ -188,6 +188,7 @@ async function revertField(fieldPath: string) {
 function registerDetailBaseline(data: any) {
   const key = getEntityKey('effects', data.id)
   historyStore.recordBaseline(key, data, ['name'])
+  historyStore.syncEntity(key, data)
 }
 
 function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
@@ -331,6 +332,16 @@ watch(
   }
 )
 
+// 撤销、重做、应用补丁后刷新当前选中条目详情和列表当前页
+watch(
+  () => appStore.dataRevision,
+  async () => {
+    await fetch()
+    if (currentId.value >= 0) {
+      await selectById(currentId.value)
+    }
+  }
+)
 onMounted(async () => {
   await fetch()
   await loadRefs()

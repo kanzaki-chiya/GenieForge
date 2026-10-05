@@ -228,8 +228,8 @@ function registerDetailBaseline(data: any) {
       historyStore.ensureFieldBaseline(key, `resources.${i}`, val)
     })
   }
+  historyStore.syncEntity(key, data)
 }
-
 const filteredResources = computed(() => {
   if (!detail.value || !detail.value.resources) return []
   return detail.value.resources.map((val: number, i: number) => ({
@@ -317,6 +317,16 @@ watch(
   }
 )
 
+// 撤销、重做、应用补丁后刷新当前选中条目详情和列表当前页
+watch(
+  () => appStore.dataRevision,
+  async () => {
+    await fetch()
+    if (currentId.value >= 0) {
+      await selectById(currentId.value)
+    }
+  }
+)
 onMounted(async () => {
   await fetch()
   const en: any = await api.effectNames()

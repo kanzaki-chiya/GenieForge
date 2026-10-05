@@ -17,6 +17,17 @@ function isScalar(val: unknown): boolean {
   return t === 'string' || t === 'number' || t === 'boolean'
 }
 
+function getNestedValue(obj: unknown, path: string): unknown {
+  if (!obj || typeof obj !== 'object') return undefined
+  const parts = path.split('.')
+  let cur: unknown = obj
+  for (const p of parts) {
+    if (!cur || typeof cur !== 'object') return undefined
+    cur = (cur as Record<string, unknown>)[p]
+  }
+  return cur
+}
+
 export const useHistoryStore = defineStore('history', () => {
   // 记录每个条目第一次打开时的标量字段快照
   // key: entityKey, value: Record<string, unknown>
@@ -93,6 +104,22 @@ export const useHistoryStore = defineStore('history', () => {
   }
 
   /**
+   * 按已记录的原值，逐个字段（包括 required_techs.0、resource_costs.0.amount 等嵌套路径）
+   * 从最新 detail 取值，重新计算该条目的改动状态。
+   * 每次加载详情时在 recordBaseline 之后调用。
+   * 注意：已知限制——撤销的是别的条目时，那个条目的列表圆点要等下次打开它时才更新。
+   */
+  function syncEntity(key: string, detail: unknown) {
+    const baselineObj = baselines[key]
+    if (!baselineObj || !detail) return
+
+    for (const fieldPath of Object.keys(baselineObj)) {
+      const currentVal = getNestedValue(detail, fieldPath)
+      trackFieldChange(key, fieldPath, currentVal)
+    }
+  }
+
+  /**
    * 检查单个字段是否有被修改
    */
   function isFieldModified(key: string, fieldPath: string, currentValue?: unknown): boolean {
@@ -148,6 +175,7 @@ export const useHistoryStore = defineStore('history', () => {
     recordBaseline,
     ensureFieldBaseline,
     trackFieldChange,
+    syncEntity,
     isFieldModified,
     getOriginalValue,
     isEntityModified,
