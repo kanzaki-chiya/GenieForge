@@ -117,7 +117,7 @@ def _error_report(based_on, name: str, reason: str) -> dict:
     return {
         "based_on": based_on,
         "results": [{"name": name, "status": "error", "reason": reason}],
-        "summary": {"applied": 0, "conflicts": 0, "missing": 0, "unsupported": 0, "errors": 1},
+        "summary": {"applied": 0, "conflicts": 0, "missing": 0, "unsupported": 0, "errors": 1, "rolled_back": 0, "skipped": 0},
     }
 
 
@@ -169,7 +169,9 @@ def apply(dat, patch_text: str, dry_run: bool = False) -> dict:
     原子性：任一步骤出错时回滚本补丁已落地的常规修改，中止后续步骤，
     出错步骤记为 ``error`` 并附原因，不向外抛异常。``missing`` /
     ``conflict`` / ``unsupported`` 为跳过状态，不触发回滚。
-    ``rule`` 会实际改数据但不支持自动撤销，回滚时无法恢复，明细中注明。
+    已回滚的常规步骤状态改为 ``rolled_back``（保留 old/new 供查看）；
+    出错后未执行的步骤记为 ``skipped``。``rule`` 实际改了数据但不支持
+    自动撤销，回滚时如实保留为 ``applied`` 并在明细中注明。
     """
     try:
         spec = parse(patch_text)
@@ -185,6 +187,7 @@ def apply(dat, patch_text: str, dry_run: bool = False) -> dict:
 
     report = {"based_on": spec.get("based_on"), "results": []}
     mutations: list[tuple] = []  # (obj, field, old, new)
+    applied_results: list[dict] = []  # 与 mutations 一一对应的常规 applied 明细
     failed = False
 
     for step in steps:
@@ -245,12 +248,21 @@ def apply(dat, patch_text: str, dry_run: bool = False) -> dict:
                 dat_core.mark_dirty()
         if not dry_run and status == "applied" and op != "rule":
             mutations.append((obj, norm_field, old, new))
+            applied_results.append(result)
         report["results"].append(result)
 
     if failed:
-        # 出错回滚后不再入命令栈（rule 的修改无法自动撤销，如实保留）。
+        # 出错回滚后不再入命令栈（rule 的修改无法自动撤销，如实保留为 applied）。
         _rollback(mutations)
         report["rolled_back"] = bool(mutations)
+        for r in applied_results:
+            # 已回滚的常规步骤：状态改为 rolled_back，保留 old/new 供查看。
+            r["status"] = "rolled_back"
+        # 出错步骤之后未执行的步骤：逐条列为 skipped（results 已有 error 为止）。
+        executed = len(report["results"])
+        for step in steps[executed:]:
+            name = step.get("name", "(未命名)") if isinstance(step, dict) else "(未命名)"
+            report["results"].append({"name": name, "status": "skipped", "reason": "前面步骤出错，已中止"})
 
     # 常规 op 入命令栈（整体撤销）
     if not dry_run and mutations and not failed:
@@ -270,6 +282,8 @@ def apply(dat, patch_text: str, dry_run: bool = False) -> dict:
         "missing": sum(1 for r in report["results"] if r["status"] == "missing"),
         "unsupported": sum(1 for r in report["results"] if r["status"] == "unsupported"),
         "errors": sum(1 for r in report["results"] if r["status"] == "error"),
+        "rolled_back": sum(1 for r in report["results"] if r["status"] == "rolled_back"),
+        "skipped": sum(1 for r in report["results"] if r["status"] == "skipped"),
     }
     return report
 

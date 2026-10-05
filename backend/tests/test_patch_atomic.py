@@ -22,10 +22,15 @@ class TestAtomicApply:
     def test_中途字段错误时回滚(self, fake_dat, clean_core):
         report = patch.apply(fake_dat, self._two_steps_second_broken())
         statuses = [r["status"] for r in report["results"]]
-        assert statuses == ["applied", "error"]
+        assert statuses == ["rolled_back", "error"]
         assert report["results"][1].get("reason")
-        assert report["summary"]["errors"] == 1
-        # 第一步已落地但被回滚；失败后不入撤销栈。
+        assert report["summary"] == {
+            "applied": 0, "conflicts": 0, "missing": 0, "unsupported": 0,
+            "errors": 1, "rolled_back": 1, "skipped": 0,
+        }
+        # 已回滚步骤保留 old/new 供查看；数据已恢复；失败后不入撤销栈。
+        assert report["results"][0]["old"] == 0.0
+        assert report["results"][0]["new"] == 5.0
         assert fake_dat.techs[0].research_time == 0.0
         assert not clean_core.undo_available()
 
@@ -40,7 +45,9 @@ class TestAtomicApply:
             }
         )
         report = patch.apply(fake_dat, text)
-        assert report["results"][1]["status"] == "error"
+        assert [r["status"] for r in report["results"]] == ["rolled_back", "error"]
+        assert report["summary"]["rolled_back"] == 1
+        assert report["summary"]["applied"] == 0
         assert fake_dat.techs[0].research_time == 0.0
         assert not clean_core.undo_available()
 
@@ -54,6 +61,47 @@ class TestAtomicApply:
         report = patch.apply(fake_dat, "steps: [unclosed")
         assert report["results"][0]["status"] == "error"
         assert report["summary"]["errors"] == 1
+
+    def test_出错后未执行步骤列为skipped(self, fake_dat, clean_core):
+        text = yaml.safe_dump(
+            {
+                "version": 1,
+                "steps": [
+                    {"name": "改Loom", "target": {"table": "techs", "name": "Loom"}, "op": "set", "field": "research_time", "value": 5.0},
+                    {"name": "坏步骤", "target": {"table": "techs", "name": "Town Watch"}, "op": "set", "field": "no_such_field", "value": 1},
+                    {"name": "未执行", "target": {"table": "techs", "name": "Loom"}, "op": "set", "field": "research_time", "value": 9.0},
+                ],
+            }
+        )
+        report = patch.apply(fake_dat, text)
+        assert [r["status"] for r in report["results"]] == ["rolled_back", "error", "skipped"]
+        assert report["results"][2]["name"] == "未执行"
+        assert report["results"][2]["reason"] == "前面步骤出错，已中止"
+        assert report["summary"]["skipped"] == 1
+        assert report["summary"]["applied"] == 0
+        assert fake_dat.techs[0].research_time == 0.0
+
+    def test_回滚时rule保持applied(self, fake_dat, clean_core):
+        loom_before = fake_dat.techs[0].resource_costs[0].amount
+        text = yaml.safe_dump(
+            {
+                "version": 1,
+                "steps": [
+                    {"name": "翻倍", "target": {"table": "techs", "name": "Loom"}, "op": "rule", "value": "double_resource_costs"},
+                    {"name": "改时间", "target": {"table": "techs", "name": "Loom"}, "op": "set", "field": "research_time", "value": 5.0},
+                    {"name": "坏步骤", "target": {"table": "techs", "name": "Town Watch"}, "op": "set", "field": "no_such_field", "value": 1},
+                ],
+            }
+        )
+        report = patch.apply(fake_dat, text)
+        # rule 未被撤回：仍为 applied；常规步骤被回滚；数据侧 rule 生效、set 恢复。
+        assert [r["status"] for r in report["results"]] == ["applied", "rolled_back", "error"]
+        assert "不支持自动撤销" in report["results"][0].get("note", "")
+        assert report["summary"]["applied"] == 1
+        assert report["summary"]["rolled_back"] == 1
+        assert report["summary"]["errors"] == 1
+        assert fake_dat.techs[0].resource_costs[0].amount == loom_before * 2
+        assert fake_dat.techs[0].research_time == 0.0
 
     def test_batch复用resolve_target签名不变(self, fake_dat, clean_core):
         # batch 执行路径复用 resolve_target(dat, target)：用假 dat 跑一次真实批量。
