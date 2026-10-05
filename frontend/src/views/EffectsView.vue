@@ -80,6 +80,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '../stores'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
@@ -89,6 +90,7 @@ import { useCopyPaste } from '../composables/useCopyPaste'
 
 const compare = useCompare()
 const cp = useCopyPaste('effects')
+const appStore = useAppStore()
 import Field from '../components/Field.vue'
 import { useRoute } from 'vue-router'
 
@@ -192,6 +194,7 @@ async function save(field: string, value: unknown) {
   try {
     await api.patchEffect(detail.value.id, { field, value })
     setDetail(field, value)
+    await appStore.refreshDatInfo()
     ElMessage.success({ message: `${field} 已保存`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
@@ -223,6 +226,7 @@ async function saveTable(rows: unknown[]) {
     await api.patchEffect(detail.value.id, { field: 'effect_commands', value: rows })
     const id = detail.value.id
     detail.value = await api.effectDetail(id)
+    await appStore.refreshDatInfo()
     ElMessage.success({ message: 'effect_commands 已更新', duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)

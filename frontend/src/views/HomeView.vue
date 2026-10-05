@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <h2>概览</h2>
+  <div class="home-container">
+    <h2 class="page-title">概览</h2>
 
     <el-row :gutter="12">
       <el-col :span="8">
@@ -43,29 +43,43 @@
   </div>
 </template>
 
+<style scoped>
+.home-container {
+  padding: 16px 20px;
+}
+.page-title {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg);
+}
+</style>
+
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '../stores'
 import { api } from '../api/client'
 import FilePicker from '../components/FilePicker.vue'
 
 const health = ref<any>(null)
-const datInfo = ref<any>(null)
+const appStore = useAppStore()
+const datInfo = computed(() => appStore.datInfo)
 const datPath = ref('')
 const loading = ref(false)
 
 async function refresh() {
   health.value = await api.health().catch(() => null)
-  datInfo.value = await api.datInfo().catch(() => null)
+  await appStore.refreshDatInfo()
 }
 
 async function load() {
   if (!datPath.value) return ElMessage.warning('请填写 dat 路径')
   loading.value = true
   try {
-    const r = await api.loadDat(datPath.value)
-    datInfo.value = r
-    ElMessage.success(`已加载，语言表条目 ${(r as any).language_entries ?? 0}`)
+    const r: any = await api.loadDat(datPath.value)
+    await appStore.refreshDatInfo()
+    ElMessage.success(`已加载，语言表条目 ${r.language_entries ?? 0}`)
   } catch (e: any) {
     ElMessage.error(e.message)
   } finally {
@@ -77,7 +91,7 @@ async function save() {
   try {
     await api.saveDat()
     ElMessage.success('已保存')
-    refresh()
+    await appStore.refreshDatInfo()
   } catch (e: any) {
     ElMessage.error(e.message)
   }
@@ -87,6 +101,7 @@ async function undo() {
   try {
     const r = await api.undo()
     ElMessage.success(`已撤销：${(r as any).description}`)
+    await appStore.refreshDatInfo()
   } catch (e: any) {
     ElMessage.error(e.message)
   }
@@ -96,6 +111,7 @@ async function redo() {
   try {
     const r = await api.redo()
     ElMessage.success(`已重做：${(r as any).description}`)
+    await appStore.refreshDatInfo()
   } catch (e: any) {
     ElMessage.error(e.message)
   }

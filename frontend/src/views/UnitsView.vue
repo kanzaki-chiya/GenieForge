@@ -170,6 +170,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '../stores'
 import { api } from '../api/client'
 import DiffDrawer from '../components/DiffDrawer.vue'
 import { useCompare } from '../composables/useCompare'
@@ -177,6 +178,7 @@ import { useCopyPaste } from '../composables/useCopyPaste'
 
 const compare = useCompare()
 const cp = useCopyPaste('units', () => civ.value)
+const appStore = useAppStore()
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import SubTable from '../components/SubTable.vue'
@@ -319,6 +321,7 @@ async function save(field: string, value: unknown) {
   try {
     await api.patchUnit(civ.value, detail.value.unit_id, { field, value })
     setDetail(field, value)
+    await appStore.refreshDatInfo()
     ElMessage.success({ message: `${field} 已保存`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
@@ -375,6 +378,7 @@ async function saveTable(path: string, key: string, rows: unknown[]) {
   try {
     await api.patchUnit(civ.value, detail.value.unit_id, { field: path, value: rows })
     setDetail(key, rows)
+    await appStore.refreshDatInfo()
     ElMessage.success({ message: `${key} 已更新`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)

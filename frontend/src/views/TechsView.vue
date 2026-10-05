@@ -129,6 +129,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '../stores'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
@@ -140,7 +141,7 @@ import { useCopyPaste } from '../composables/useCopyPaste'
 
 const compare = useCompare()
 const cp = useCopyPaste('techs')
-
+const appStore = useAppStore()
 const rows = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -223,6 +224,7 @@ async function save(field: string, value: unknown) {
   try {
     await api.patchTech(detail.value.id, { field, value })
     setDetail(field, value)
+    await appStore.refreshDatInfo()
     ElMessage.success({ message: `${field} 已保存`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
@@ -254,6 +256,7 @@ async function saveTable(field: string, rows: unknown[]) {
   try {
     await api.patchTech(detail.value.id, { field, value: rows })
     setDetail(field, rows)
+    await appStore.refreshDatInfo()
     ElMessage.success({ message: `${field} 已更新`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
