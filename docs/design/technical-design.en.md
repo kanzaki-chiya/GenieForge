@@ -483,6 +483,6 @@ flow:
 
 ## 12. Linkage with Existing Artifacts
 
-- `genie_poc.py` (this repo): parse/write/diff PoC; its `apply_string_fix()` is reused as `core/genieutils_fix.py`.
+- `scripts/genie_poc.py` (this repo): parse/write/diff PoC; its `apply_string_fix()` is reused as `core/genieutils_fix.py`.
 - `feasibility-analysis.en.md`: the feasibility analysis of the three pain points; this doc is the "Option C" build spec.
 - Your `修改清单.txt` / `新的清单.txt`: seed corpus for the first patches — translate entries into patch DSL examples.

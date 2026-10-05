@@ -13,7 +13,7 @@
 | Best path | Build a "semantic patch + dat diff + reference index" tool on top of the open-source **genieutils-py**, rather than modifying or decompiling AGE. |
 | Verified results | All three of your dats (`VER 7.8 / 8.4 / 8.8`) parse successfully; semantic edit + byte-level lossless write-back succeeded; version-to-version diff (ID drift, new civs) succeeded. |
 
-Key evidence (reproducible via `genie_poc.py`):
+Key evidence (reproducible via `scripts/genie_poc.py`):
 
 ```
 back/empires2_x2_p1_1213.dat  VER 7.8   46 civs   981 techs   981 effects
@@ -189,7 +189,7 @@ This eliminates the "search techs and effects by raw ID" pain entirely.
 ### 6.2 Key technical facts (verified)
 
 - Library: `genieutils-py` (PyPI, SiegeEngineers), built for DE `empires2_x2_p1.dat`, supports `GV_C20+` (FileVersion 7.7+, covering your 7.8/8.4/8.8).
-- **Must-fix pitfall (located and fixed)**: `genieutils-py 0.1.2` treats dat strings as UTF-8, but the dat uses a **custom single-byte encoding**; non-ASCII strings (Chinese/special chars) get corrupted on write. Apply **3 latin-1 bidirectional patches** (see `genie_poc.py` → `apply_string_fix()`) for byte-level lossless round-trip (verified: 1 differing byte).
+- **Must-fix pitfall (located and fixed)**: `genieutils-py 0.1.2` treats dat strings as UTF-8, but the dat uses a **custom single-byte encoding**; non-ASCII strings (Chinese/special chars) get corrupted on write. Apply **3 latin-1 bidirectional patches** (see `scripts/genie_poc.py` → `apply_string_fix()`) for byte-level lossless round-trip (verified: 1 differing byte).
 - Write-back uses `zlib.compress(..., wbits=-15)`; compression level differs from official but the game only reads the decompressed content.
 
 ### 6.3 Architecture sketch
@@ -217,7 +217,7 @@ This eliminates the "search techs and effects by raw ID" pain entirely.
 
 | Phase | Content | Deliverable | Status |
 |-------|---------|-------------|--------|
-| P0 | parse/write validation + latin-1 fix | `genie_poc.py` | ✅ done |
+| P0 | parse/write validation + latin-1 fix | `scripts/genie_poc.py` | ✅ done |
 | P1 | core wrapper: `load / save / object access` | Python module | todo |
 | P2 | structured diff (3 levels) | `diff` command/function | todo |
 | P3 | semantic patch engine + patch DSL + conflict report | `apply-patch` | todo |

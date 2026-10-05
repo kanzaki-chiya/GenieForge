@@ -1,193 +1,134 @@
 # GenieForge
 
-> A modern modding workbench for **Age of Empires II: Definitive Edition**. Stop re-doing all your edits every time the game updates.
+> A modding workbench for **Age of Empires II: Definitive Edition**. Stop redoing all your edits every time the game updates.
 
-**Language**: English（current）· [简体中文](README.md)
+**Language**: English (current) · [简体中文](README.md)
 
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#)　[![License](https://img.shields.io/badge/License-MIT-blue)](#)　[![Release](https://img.shields.io/badge/Release-Auto--update-orange)](#)
+[![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)](#installation)　[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
 ---
 
 ## What is GenieForge?
 
-All of AoE2 DE's gameplay data lives in a single ~10 MB file, `empires2_x2_p1.dat` — units, technologies, effects, civilization bonuses, costs, and more. Traditional tools like AGE only let you "open → edit → save". So whenever the official game updates, ID drift and newly inserted content invalidate all your hard-coded edits, forcing you to redo everything from scratch on the new version.
+All of AoE2 DE's gameplay data lives in a single ~10 MB file, `empires2_x2_p1.dat` — units, technologies, effects, civilization bonuses, costs and more. Traditional tools like AGE only let you "open → edit → save", so whenever the game updates, ID drift and newly inserted content force you to redo your edits on the new version.
 
-GenieForge fully parses the dat file and provides three capabilities that change the way you work:
+GenieForge fully parses the dat file and offers three core capabilities:
 
-- **Incremental modding** — store your changes as *semantic patches*; after an official update, re-apply them with one click and handle only the few remaining conflicts.
-- **Batch diffing** — see every difference between two dat files at a glance, no more manual eyeballing.
-- **Cross-reference navigation** — jump between techs ↔ effects ↔ units in both directions, no more guessing from raw IDs.
-
----
-
-## Key Features
-
-### ✨ Incremental modding — write once, reuse forever
-Express your changes as **patches** (e.g. "set Loom's gold cost to 30", "double every `C-Bonus*` tech"). After an official update, apply the patches onto the new dat — the tool auto-locates targets (name → signature → relative position), leaving only a handful of cases for manual confirmation.
-
-### 🔍 Batch diff
-Open two dat files and get a three-level diff:
-- **Table level** — how many techs / civs / effects were added or removed;
-- **Record level** — which fields changed on same-named entries (side-by-side red/green highlighting);
-- **Reference level** — which same-named techs had their IDs shifted (the exact thing that breaks hard-coded mods).
-
-### 🔗 Cross-reference navigation
-Click any tech to see the effect it references, its prerequisite techs, and its owning civilization; reverse-lookups show "who references this effect". Every numeric ID is translated to a readable name, with hover previews.
-
-### 🧰 Batch editing
-Multi-select bulk edits, condition-based filtering, find & replace, and reusable templates (e.g. "double civ bonus"). Preview the affected rows before applying, and undo in one step.
-
-### 📦 Generate / apply mod patches
-- Reverse-generate a patch from the diff of "official dat vs. my modded dat";
-- Or export the current editing session as a patch;
-- Patches are plain-text files — versionable, shareable, and reusable.
-
-### 🕘 Version management
-Track every change with full history and rollback to any point. A project is "baseline official version + a set of patches", and GenieForge prompts you to rebase when the game updates.
-
-### 🔄 GitHub auto-update
-The app connects to GitHub and checks for new releases on startup with one-click update; patch projects can also sync to GitHub for backup and collaboration.
-
-### 🤖 Public API (advanced)
-A full HTTP API lets your own scripts or an AI agent automate "read data → batch edit → apply patch → save", no manual clicking required.
+- **Semantic patches** — write your changes as patches that locate targets by *name*, then re-apply them to the new dat after an update, fixing only the few entries that no longer match.
+- **Dat diff** — list the entries added, removed and modified between two dat files, plus same-named entries whose IDs drifted.
+- **AGE-style editing** — edit techs, units, civs and effects directly in forms, with IDs shown as readable names.
 
 ---
 
-## Getting Started
+## Features
 
-### Installation
+### Data editing
+- Tech / Unit / Civ / Effect pages with AGE-style field groups; edits apply immediately, with undo / redo.
+- Enum fields (types, resources, armor classes, effect commands, …) use dropdowns; sub-tables (costs, attacks, armors, effect commands, …) support adding and removing rows.
+- The Unit page lets you switch civilizations and filter by dimensions such as Class, Type and HP.
+- Whole-entry copy / paste (`Ctrl+C` / `Ctrl+V`) copies every field of one entry onto another.
+- The effect field on the Tech page jumps to the referenced effect.
+- With the game's language file configured, entries show their in-game names.
 
-1. Download the latest release from [GitHub Releases](../../releases);
-2. Unpack and run (first launch walks you through initial setup);
-3. The app auto-updates with official releases (switchable to manual in settings).
+### Diff
+- **Diff page** — pick a base and a target dat to see added / removed / modified counts, per-entry changes and ID drift, and export the result as a patch.
+- **In-page compare** — click **Compare** on any data page to compare the current entry field by field with the same entry in another dat; apply individual differences or all of them.
 
-### First-time setup
+### Patches
+- Visual patch editor: create a patch, fill in each step's target and operation, preview what it hits, then apply. Patches are saved as YAML files in `patches/`.
+- Targets are matched by exact name first, then by name regex, then by a signature (costs + prerequisite techs + effect). Steps that match nothing or several entries are reported as conflicts for you to resolve.
+- Supported operations: `set`, `add`, `multiply`, `append` / `remove` (list items).
+- An applied patch can be undone as a whole.
 
-1. In **Settings**, select your **game directory** (the tool auto-detects Steam / Microsoft Store installs);
-2. Confirm it found `empires2_x2_p1.dat` and the language file (used to show unit/tech names in your language);
-3. Done.
+### Version records
+- Every save records a version (file path + hash); the **Versions** page can roll back to that file. Records are kept for the current session only.
 
-### Open & edit
-
-1. Click **Open dat** and choose an `empires2_x2_p1.dat`;
-2. Use the left navigation to switch between Techs / Effects / Civs / Units tables;
-3. Double-click a cell to edit; reference fields (e.g. effect ID) use a dropdown picker;
-4. Press `Ctrl+S` to save.
-
----
-
-## Usage Guide
-
-### Recommended workflow after an official update (the core scenario)
-
-```
-① Open the new official dat
-② Click "Apply patch" and select your patch set
-③ The tool auto-matches targets and lists conflicts (usually only a few)
-④ Resolve conflicts manually; everything else applies automatically
-⑤ Save as your new mod and commit the version record
-```
-
-> From now on, each official update costs you a few small adaptations — not a full rebuild.
-
-### Batch editing examples
-
-- **Bulk costs**: filter "all siege units" → select all → right-click "Batch operation" → cost ×1.2.
-- **Apply a template**: pick "Double civ bonus" → preview affected tech count → confirm.
-- **Find & replace**: `Ctrl+F` to search and bulk-replace by field.
-
-### Compare two versions
-
-1. **Tools → Compare dat**, pick base and target files;
-2. View the summary cards (added / removed / changed counts);
-3. Click any change for side-by-side red/green comparison;
-4. Export the difference as a patch if needed.
-
-### Cross-reference navigation
-
-- Click any ID / name to jump to that entry;
-- `Ctrl+Click` to open in a new panel;
-- Right-click → "Who references this" for reverse lookups.
+### Public API
+- A built-in HTTP API lets scripts or AI agents run the full "load → query → edit / apply patch → save" flow. See the [API reference](docs/api.md) and the [agent guide](docs/agent.md) (both in Chinese).
 
 ---
 
-## UI Overview
+## Installation
 
-```
-┌──────────┬───────────────────────────────┬──────────────┐
-│          │                               │              │
-│  Nav tree │        Main table            │  Detail panel │
-│  Techs/   │  name · value · ref · multi- │  field edit / │
-│  Effects  │  select                      │  jump         │
-│  Civs/    │                               │              │
-│  Units    │                               │              │
-├──────────┴───────────────────────────────┴──────────────┤
-│  Bottom drawer: diff / patches / version history / log  │
-└──────────────────────────────────────────────────────────┘
-```
+### Release build (Windows)
 
-- Dark / light themes, draggable layout, remembered window state.
-- Shortcuts: save `Ctrl+S`, find `Ctrl+F`, undo `Ctrl+Z`, jump ref `Ctrl+Click`.
+1. Download `GenieForge-<version>-windows.zip` from [GitHub Releases](../../releases);
+2. Unzip and run `GenieForge.exe`.
 
----
+Click **Check for updates** on the Workbench to see whether a newer version is available.
 
-## Public API (for scripts / agents)
+### Run from source
 
-By default the API runs at `http://127.0.0.1:8342` with full docs at `/docs`.
-
-Example — let an agent perform an edit:
+Requires Python 3.11+ and Node.js 18+.
 
 ```bash
-# Load a dat
-curl -X POST http://127.0.0.1:8342/api/dat/load \
-     -H "Content-Type: application/json" \
-     -d '{"path":"D:/AoE2DE/resources/_common/dat/empires2_x2_p1.dat"}'
+pip install -r backend/requirements.txt -r desktop/requirements.txt
+cd frontend && npm install && npm run build && cd ..
+python desktop/run.py
+```
 
-# Apply a semantic patch (Loom gold cost -> 30)
-curl -X POST http://127.0.0.1:8342/api/patch/apply \
-     -H "Content-Type: application/json" \
-     -d '{"patch":"steps:\n  - target: {table: techs, name: Loom}\n    op: set\n    field: resource_costs.2.amount\n    value: 30"}'
+To build a package yourself, see [`build/README.md`](build/README.md).
 
-# Save
-curl -X POST http://127.0.0.1:8342/api/dat/save \
-     -H "Content-Type: application/json" \
-     -d '{"path":"D:/AoE2DE/resources/_common/dat/empires2_x2_p1_mod.dat"}'
+---
+
+## Quick start
+
+> The interface is currently in Chinese; button names below are translated.
+
+1. In **Settings**, choose the game's language file `key-value-strings-utf8.txt` (under `resources/<language>/strings/key-value/` in the game folder; optional, used for display names);
+2. On the **Workbench**, choose the `empires2_x2_p1.dat` to edit and click **Load** (parsing takes about 10–15 s);
+3. Switch between Techs / Units / Civs / Effects in the sidebar and edit fields directly;
+4. Click **Save** on the Workbench.
+
+> The game locks the dat file while running — close the game first, and back up the original file before editing.
+
+### Recommended flow after an official update
+
+```
+① Diff the old official dat against your mod dat and "Export as patch" (or maintain patch files directly)
+② Load the new official dat
+③ Open the patch on the Patches page and Preview it
+④ Fix conflicting / unmatched steps by hand
+⑤ Apply, then save as the new mod
+```
+
+### Patch example
+
+```yaml
+version: 1
+based_on: "VER 8.8"
+steps:
+  - name: "Loom gold cost 30"
+    target: { table: techs, name: "Loom" }
+    op: set
+    field: "resource_costs.gold.amount"   # located by resource type, not by index
+    value: 30
 ```
 
 ---
 
 ## FAQ
 
-**Q: Will it corrupt my game files?**
-A: GenieForge reads/writes the dat copies you specify (back up first). Writes are byte-level lossless and fully compatible with the official format.
+**Q: Can this break my game files?**
+A: The tool only reads and writes the files you choose. Saving is byte-for-byte lossless and fully compatible with the official format; backing up first is still recommended.
 
-**Q: Do patches break after an official update?**
-A: No. Patches locate targets by name/signature, not fixed IDs, so official ID drift is handled automatically; the few ambiguous cases are listed for you to confirm.
+**Q: Will my patches always apply after an update?**
+A: Steps located by name are immune to ID drift, so most apply directly. If an entry was renamed, or its signature (costs / prerequisites) changed, the step is reported as a conflict or as unmatched and needs a manual fix.
 
-**Q: Names aren't showing in my language?**
-A: In Settings, confirm the language file path (e.g. `key-value-strings-utf8.txt` in the game directory).
+**Q: Display names don't show up?**
+A: Check the language file path in **Settings**, then click **Refresh**.
 
 **Q: Which dat versions are supported?**
-A: Definitive Edition `VER 7.8 / 8.4 / 8.8` and onward, kept up to date with official releases.
-
----
-
-## Technical Notes (for the curious)
-
-- Data core is built on the open-source [genieutils-py](https://github.com/SiegeEngineers/genieutils-py);
-- dat format = zlib compression + Genie engine structured data (public format);
-- Backend FastAPI + frontend Vue 3, wrapped in a native desktop window; the API and the desktop UI share the same logic.
-
-> For the full product & technical spec, see [`technical-design.en.md`](technical-design.en.md); for the feasibility analysis, see [`feasibility-analysis.en.md`](feasibility-analysis.en.md).
+A: Verified with DE `VER 7.8 / 8.4 / 8.8`.
 
 ---
 
 ## Acknowledgements
 
-- [Advanced Genie Editor (AGE)](https://github.com/Tapsa/AGE) — long-standing format reference;
-- [genieutils / genieutils-py](https://github.com/SiegeEngineers/genieutils-py) — dat read/write library;
+- [Advanced Genie Editor (AGE)](https://github.com/Tapsa/AGE) — format reference and comparison tool;
+- [genieutils-py](https://github.com/SiegeEngineers/genieutils-py) — dat read/write library;
 - The AoE2 DE modding community.
 
 ## License
 
-MIT License (data-parsing libraries retain their own licenses).
+[MIT License](LICENSE) (dependencies follow their own licenses).
