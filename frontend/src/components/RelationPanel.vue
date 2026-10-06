@@ -66,7 +66,7 @@
             <template v-if="ch.table">
               <div class="card-header">
                 <span class="ref-badge">{{ getTableLabel(ch.table) }}</span>
-                <span class="change-name">{{ ch.name || '未命名' }}</span>
+                <span class="change-name">{{ ch.current_name || ch.name || '未命名' }}</span>
                 <span class="change-id mono">#{{ ch.id }}<template v-if="ch.civ != null"> (C{{ ch.civ }})</template></span>
               </div>
               <div class="card-field mono">{{ ch.field }}</div>
@@ -114,6 +114,7 @@ export interface ChangeItem {
   old?: any
   new?: any
   name?: string
+  current_name?: string
   desc?: string
   convertible: boolean
   reason?: string
@@ -201,7 +202,7 @@ function formatChangeTooltip(ch: ChangeItem): string {
   }
   const lines = [
     `表: ${getTableLabel(ch.table)}`,
-    `条目: ${ch.name || '未命名'} #${ch.id}${ch.civ != null ? ` (Civ ${ch.civ})` : ''}`,
+    `条目: ${ch.current_name || ch.name || '未命名'} #${ch.id}${ch.civ != null ? ` (Civ ${ch.civ})` : ''}`,
     `字段: ${ch.field}`,
     `旧值: ${formatValue(ch.old)}`,
     `新值: ${formatValue(ch.new)}`,

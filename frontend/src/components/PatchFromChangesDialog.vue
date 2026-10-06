@@ -42,7 +42,7 @@
             >
               <el-checkbox :value="ch.index" class="item-checkbox">
                 <span class="ref-badge">{{ getTableLabel(ch.table) }}</span>
-                <span class="item-name">{{ ch.name || '未命名' }}</span>
+                <span class="item-name">{{ ch.current_name || ch.name || '未命名' }}</span>
                 <span class="item-id mono">#{{ ch.id }}</span>
                 <span class="item-field mono">{{ ch.field }}</span>
                 <span class="item-diff mono">
@@ -72,7 +72,7 @@
             <div class="skipped-left">
               <span class="ref-badge op-badge">{{ ch.table ? getTableLabel(ch.table) : '操作' }}</span>
               <span class="skipped-desc mono">
-                {{ ch.table ? `${ch.name || '未命名'} #${ch.id}: ${ch.field}` : ch.desc }}
+                {{ ch.table ? `${ch.current_name || ch.name || '未命名'} #${ch.id}: ${ch.field}` : ch.desc }}
               </span>
             </div>
             <span class="skipped-reason">{{ ch.reason }}</span>
@@ -135,6 +135,7 @@ export interface ChangeItem {
   old?: any
   new?: any
   name?: string
+  current_name?: string
   desc?: string
   convertible: boolean
   reason?: string

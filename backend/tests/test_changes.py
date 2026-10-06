@@ -186,6 +186,109 @@ def test_from_changes_generation_and_preview(fake_dat, clean_core):
     assert prev_data["results"][0]["status"] == "applied"
 
 
+
+def test_rename_and_cost_apply_to_base_dat(fake_dat, clean_core):
+    """会话内改名且改费用的科技，生成的补丁能够正确套用到原版数据。"""
+    clean_core._dat = fake_dat
+    clean_core.edit_field(
+        fake_dat.techs[0],
+        "resource_costs.0.amount",
+        30,
+        "techs[0].resource_costs.0.amount",
+        meta={"table": "techs", "id": 0, "field": "resource_costs.0.amount"},
+    )
+    clean_core.edit_field(
+        fake_dat.techs[0],
+        "name",
+        "Loom2",
+        "techs[0].name",
+        meta={"table": "techs", "id": 0, "field": "name"},
+    )
+
+    ch = clean_core.changes()
+    assert len(ch) == 2
+    assert ch[0]["name"] == "Loom"
+    assert ch[0]["current_name"] == "Loom2"
+    assert ch[0]["convertible"] is True
+    assert ch[1]["name"] == "Loom"
+    assert ch[1]["current_name"] == "Loom2"
+    assert ch[1]["convertible"] is True
+
+    client = TestClient(app, base_url="http://127.0.0.1:8342")
+    res = client.post("/api/patch/from-changes", json={})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["count"] == 2
+
+    yaml_text = data["yaml"]
+    spec = patch.parse(yaml_text)
+    # 改名步骤排在费用步骤之后
+    assert spec["steps"][0]["field"] == "resource_costs.0.amount"
+    assert spec["steps"][1]["field"] == "name"
+    assert spec["steps"][0]["target"]["name"] == "Loom"
+    assert spec["steps"][1]["target"]["name"] == "Loom"
+
+    # 对全新的未修改 FakeDat 执行 apply
+    from tests.conftest import make_dat
+    base = make_dat()
+    report = patch.apply(base, yaml_text)
+    assert report["summary"]["applied"] == 2
+    assert report["summary"]["missing"] == 0
+    assert base.techs[0].name == "Loom2"
+    assert base.techs[0].resource_costs[0].amount == 30
+
+
+def test_only_rename_applies_to_base_dat(fake_dat, clean_core):
+    """只改名不改其他字段，生成的补丁能够正确套用。"""
+    clean_core._dat = fake_dat
+    clean_core.edit_field(
+        fake_dat.techs[0],
+        "name",
+        "LoomSuper",
+        "techs[0].name",
+        meta={"table": "techs", "id": 0, "field": "name"},
+    )
+
+    client = TestClient(app, base_url="http://127.0.0.1:8342")
+    res = client.post("/api/patch/from-changes", json={})
+    yaml_text = res.json()["yaml"]
+
+    from tests.conftest import make_dat
+    base = make_dat()
+    report = patch.apply(base, yaml_text)
+    assert report["summary"]["applied"] == 1
+    assert base.techs[0].name == "LoomSuper"
+
+
+def test_modify_effect_id_and_costs_signature_consistency(fake_dat, clean_core):
+    """同时改 effect_id 和费用，两步的签名一致，并且都等于修改前的值。"""
+    clean_core._dat = fake_dat
+    clean_core.edit_field(
+        fake_dat.techs[0],
+        "effect_id",
+        99,
+        "techs[0].effect_id",
+        meta={"table": "techs", "id": 0, "field": "effect_id"},
+    )
+    clean_core.edit_field(
+        fake_dat.techs[0],
+        "resource_costs.0.amount",
+        45,
+        "techs[0].resource_costs.0.amount",
+        meta={"table": "techs", "id": 0, "field": "resource_costs.0.amount"},
+    )
+
+    client = TestClient(app, base_url="http://127.0.0.1:8342")
+    res = client.post("/api/patch/from-changes", json={})
+    spec = patch.parse(res.json()["yaml"])
+    assert len(spec["steps"]) == 2
+
+    sig0 = spec["steps"][0]["target"]["signature"]
+    sig1 = spec["steps"][1]["target"]["signature"]
+    assert sig0 == sig1
+    assert sig0["effect_id"] == 10
+    assert sig0["resource_costs"][0] == [3, 60]
+
 def test_409_when_dat_not_loaded(clean_core):
     # 确保 dat 未加载
     clean_core._dat = None

@@ -259,15 +259,38 @@ class DatCore:
                     pass
                 return ""
 
-            def _check_unique(table: str, name: str) -> tuple[bool, int]:
+            def _check_unique(table: str, name: str, exclude_id: int) -> tuple[bool, int]:
                 if table == "units":
                     return False, 0
                 try:
                     objs = getattr(d, table, [])
-                    count = sum(1 for o in objs if o is not None and getattr(o, "name", None) == name)
-                    return (count == 1), count
+                    other_matches = sum(
+                        1 for i, o in enumerate(objs)
+                        if i != exclude_id and o is not None and getattr(o, "name", None) == name
+                    )
+                    return (other_matches == 0), other_matches
                 except Exception:
                     return False, 0
+
+            # 预先解析各条目的原名称（有 name 修改时取 old，否则取当前名）与当前名称
+            entity_names: dict[tuple, tuple[str, str]] = {}
+            for entry in entries:
+                if entry["type"] == "meta" and entry["old"] != entry["new"]:
+                    ekey = (entry["table"], entry["id"], entry.get("civ"))
+                    if ekey not in entity_names:
+                        curr = _get_name(entry["table"], entry["id"], entry.get("civ"))
+                        name_entry = next(
+                            (
+                                e for e in entries
+                                if e["type"] == "meta"
+                                and (e["table"], e["id"], e.get("civ")) == ekey
+                                and e["field"] == "name"
+                                and e["old"] != e["new"]
+                            ),
+                            None,
+                        )
+                        orig = str(name_entry["old"] or "") if name_entry is not None else curr
+                        entity_names[ekey] = (orig, curr)
 
             result: list[dict] = []
             for entry in entries:
@@ -286,22 +309,20 @@ class DatCore:
                     eid = entry["id"]
                     civ = entry["civ"]
                     field = entry["field"]
-                    name = _get_name(table, eid, civ)
+                    ekey = (table, eid, civ)
+                    orig_name, curr_name = entity_names[ekey]
 
                     if table == "units":
                         convertible = False
                         reason = "单位位于各文明下，补丁引擎暂不支持定位"
-                    elif not name.strip():
+                    elif not orig_name.strip():
                         convertible = False
-                        reason = "条目内部名称为空，补丁引擎无法定位"
+                        reason = "条目原内部名称为空，补丁引擎无法定位"
                     else:
-                        is_unique, count = _check_unique(table, name)
+                        is_unique, other_count = _check_unique(table, orig_name, eid)
                         if not is_unique:
                             convertible = False
-                            if count == 0:
-                                reason = f"在表 '{table}' 中未找到内部名称为 '{name}' 的条目"
-                            else:
-                                reason = f"内部名称 '{name}' 在表 '{table}' 中不唯一（存在 {count} 个同名条目），补丁引擎无法唯一匹配"
+                            reason = f"原名称 '{orig_name}' 在表 '{table}' 中不唯一（存在其他同名条目），补丁引擎无法唯一匹配"
                         else:
                             convertible = True
                             reason = None
@@ -313,7 +334,8 @@ class DatCore:
                         "field": field,
                         "old": entry["old"],
                         "new": entry["new"],
-                        "name": name,
+                        "name": orig_name,
+                        "current_name": curr_name,
                         "convertible": convertible,
                     }
                     if civ is not None:
