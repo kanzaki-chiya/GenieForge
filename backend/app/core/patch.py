@@ -354,22 +354,25 @@ def apply(dat, patch_text: str, dry_run: bool = False, overrides: Optional[dict]
     applied_results: list[dict] = []  # 与 mutations 一一对应的常规 applied 明细
     failed = False
 
-    def _apply_one(idx: int, name: str, table: str, op: str, field, value) -> bool:
+    def _emit(item: dict, step_idx: int) -> None:
+        item["step"] = step_idx
+        report["results"].append(item)
+
+    def _apply_one(step_idx: int, idx: int, name: str, table: str, op: str, field, value) -> bool:
         """对单个目标 id 应用一步；返回 False 表示出错需中止。"""
         try:
             obj = getattr(dat, table)[idx]
         except Exception as exc:
-            report["results"].append(
-                {"name": name, "status": "error", "reason": f"目标读取失败：{exc}"})
+            _emit({"name": name, "status": "error", "reason": f"目标读取失败：{exc}"}, step_idx)
             return False
         if field is None and op != "rule":
-            report["results"].append({"name": name, "status": "missing"})
+            _emit({"name": name, "status": "missing"}, step_idx)
             return True
         try:
             norm_field = _normalize_field(obj, field or "")
             status, old, new = _apply_op(obj, norm_field, op, value, dry_run)
         except Exception as exc:
-            report["results"].append({"name": name, "status": "error", "reason": f"应用失败：{exc}"})
+            _emit({"name": name, "status": "error", "reason": f"应用失败：{exc}"}, step_idx)
             return False
         result = {"name": name, "status": status, "id": idx, "field": norm_field, "old": old, "new": new}
         if status == "applied" and op == "rule":
@@ -382,12 +385,12 @@ def apply(dat, patch_text: str, dry_run: bool = False, overrides: Optional[dict]
         if not dry_run and status == "applied" and op != "rule":
             mutations.append((obj, norm_field, old, new))
             applied_results.append(result)
-        report["results"].append(result)
+        _emit(result, step_idx)
         return True
 
     for step_idx, step in enumerate(steps):
         if not isinstance(step, dict):
-            report["results"].append({"name": "(未命名)", "status": "error", "reason": "步骤格式错误，需为映射"})
+            _emit({"name": "(未命名)", "status": "error", "reason": "步骤格式错误，需为映射"}, step_idx)
             failed = True
             break
         name = step.get("name", "(未命名)")
@@ -397,12 +400,12 @@ def apply(dat, patch_text: str, dry_run: bool = False, overrides: Optional[dict]
         value = step.get("value")
 
         if step_idx in skip_set:
-            report["results"].append({"name": name, "status": "skipped", "reason": "已手动跳过"})
+            _emit({"name": name, "status": "skipped", "reason": "已手动跳过"}, step_idx)
             continue
 
         # 缺 table 或缺 target：记单步 error，回滚已落地修改并中止。
         if not isinstance(target, dict) or not target.get("table"):
-            report["results"].append({"name": name, "status": "error", "reason": "缺少 target.table"})
+            _emit({"name": name, "status": "error", "reason": "缺少 target.table"}, step_idx)
             failed = True
             break
         table = target["table"]
@@ -416,15 +419,15 @@ def apply(dat, patch_text: str, dry_run: bool = False, overrides: Optional[dict]
                 n = 0
             bad = [i for i in ids if not isinstance(i, int) or isinstance(i, bool) or not 0 <= i < n]
             if bad:
-                report["results"].append(
-                    {"name": name, "status": "error", "reason": f"指定条目 id 越界：{bad}"})
+                _emit({"name": name, "status": "error",
+                       "reason": f"指定条目 id 越界：{bad}"}, step_idx)
                 failed = True
                 break
             if not ids:
-                report["results"].append({"name": name, "status": "skipped", "reason": "已手动跳过"})
+                _emit({"name": name, "status": "skipped", "reason": "已手动跳过"}, step_idx)
                 continue
             for eid in ids:
-                if not _apply_one(eid, name, table, op, field, value):
+                if not _apply_one(step_idx, eid, name, table, op, field, value):
                     failed = True
                     break
             if failed:
@@ -434,21 +437,19 @@ def apply(dat, patch_text: str, dry_run: bool = False, overrides: Optional[dict]
         try:
             hits = resolve_target(dat, target)
         except Exception as exc:
-            report["results"].append({"name": name, "status": "error", "reason": f"目标匹配失败：{exc}"})
+            _emit({"name": name, "status": "error", "reason": f"目标匹配失败：{exc}"}, step_idx)
             failed = True
             break
         if len(hits) == 0:
-            report["results"].append(
-                {"name": name, "status": "missing", "suggestions": _suggest_for_missing(dat, target)})
+            _emit({"name": name, "status": "missing",
+                   "suggestions": _suggest_for_missing(dat, target)}, step_idx)
             continue
         if len(hits) > 1:
-            report["results"].append(
-                {"name": name, "status": "conflict", "candidates": hits,
-                 "candidate_details": _candidate_details(dat, table, hits)}
-            )
+            _emit({"name": name, "status": "conflict", "candidates": hits,
+                   "candidate_details": _candidate_details(dat, table, hits)}, step_idx)
             continue
 
-        if not _apply_one(hits[0], name, table, op, field, value):
+        if not _apply_one(step_idx, hits[0], name, table, op, field, value):
             failed = True
             break
 
@@ -460,12 +461,11 @@ def apply(dat, patch_text: str, dry_run: bool = False, overrides: Optional[dict]
             # 已回滚的常规步骤：状态改为 rolled_back，保留 old/new 供查看。
             r["status"] = "rolled_back"
         # 出错步骤之后未执行的步骤：逐条列为 skipped（results 已有 error 为止）。
-        executed_steps = len(report["results"])
-        # override 展开导致 results 多于 steps：按“步骤已消费完”算，不再补 skipped。
-        if executed_steps <= len(steps):
-            for step in steps[executed_steps:]:
-                sname = step.get("name", "(未命名)") if isinstance(step, dict) else "(未命名)"
-                report["results"].append({"name": sname, "status": "skipped", "reason": "前面步骤出错，已中止"})
+        consumed = max((r.get("step", -1) for r in report["results"]), default=-1) + 1
+        for idx in range(consumed, len(steps)):
+            step = steps[idx]
+            sname = step.get("name", "(未命名)") if isinstance(step, dict) else "(未命名)"
+            _emit({"name": sname, "status": "skipped", "reason": "前面步骤出错，已中止"}, idx)
 
     # 常规 op 入命令栈（整体撤销）
     if not dry_run and mutations and not failed:

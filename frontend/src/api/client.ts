@@ -86,11 +86,18 @@ export const api = {
     request('/api/copy', { method: 'POST', body: JSON.stringify({ table, src, dst, civ }) }),
   diff: (base: string, target: string) =>
     request('/api/diff', { method: 'POST', body: JSON.stringify({ base, target }) }),
-  patchApply: (patch: string) =>
-    request('/api/patch/apply', { method: 'POST', body: JSON.stringify({ patch }) }),
-  patchPreview: (patch: string) =>
-    request('/api/patch/preview', { method: 'POST', body: JSON.stringify({ patch }) }),
+  patchApply: (patch: string, overrides?: Record<number, number[]>, skip?: number[]) =>
+    request('/api/patch/apply', { method: 'POST', body: JSON.stringify({ patch, overrides, skip }) }),
+  patchPreview: (patch: string, overrides?: Record<number, number[]>, skip?: number[]) =>
+    request('/api/patch/preview', { method: 'POST', body: JSON.stringify({ patch, overrides, skip }) }),
   patchList: () => request('/api/patch/list'),
+  patchStatus: () => request<{ items: Array<{ name: string; applied: number; conflicts: number; missing: number; errors: number; ok: boolean }> }>('/api/patch/status'),
+  patchParse: (yaml: string) =>
+    request<{ spec: any }>('/api/patch/parse', { method: 'POST', body: JSON.stringify({ yaml }) }),
+  patchDump: (spec: any) =>
+    request<{ yaml: string }>('/api/patch/dump', { method: 'POST', body: JSON.stringify({ spec }) }),
+  patchResolve: (yaml: string, step: number, ids: number[]) =>
+    request<{ yaml: string; steps_added: number; warnings: string[] }>('/api/patch/resolve', { method: 'POST', body: JSON.stringify({ yaml, step, ids }) }),
   patchSave: (name: string, content: string) =>
     request('/api/patch/save', { method: 'POST', body: JSON.stringify({ name, content }) }),
   patchDelete: (name: string) => request(`/api/patch/${name}`, { method: 'DELETE' }),

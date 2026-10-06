@@ -99,6 +99,7 @@
 - `overrides`：`{步骤下标: [条目 id]}`（JSON 键为字符串，接口层转 int），有 override 的步骤不走匹配、逐个 id 应用；越界 id 记 error 并触发回滚。
 - `skip`：`[步骤下标]`，记为 `skipped`（reason“已手动跳过”），不算错误、不触发回滚。
 - `conflict` 结果附 `candidate_details: [{id, name, display_name}]`（`candidates` id 列表保留）；`missing` 结果附 `suggestions`（最多 3 条，`[{id, name, display_name, score, reasons}]`）。
+- 每条结果带 `step`（原步骤下标；override 展开的多条明细共用一步）。
 
 ### 版本、Git 与更新
 
