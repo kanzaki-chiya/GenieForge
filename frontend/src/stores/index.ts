@@ -27,6 +27,8 @@ export const useAppStore = defineStore('app', () => {
   const loading = ref(false)
   // 全局数据版本号，在撤销、重做、应用补丁后递增以触发页面数据刷新
   const dataRevision = ref(0)
+  // 修改记录版本号，在字段保存成功后递增以触发本次修改面板刷新
+  const changesRevision = ref(0)
 
   function setDatInfo(info: DatInfo | null) {
     datInfo.value = info
@@ -34,6 +36,11 @@ export const useAppStore = defineStore('app', () => {
 
   function bumpRevision() {
     dataRevision.value += 1
+    changesRevision.value += 1
+  }
+
+  function bumpChangesRevision() {
+    changesRevision.value += 1
   }
 
   async function refreshDatInfo(): Promise<DatInfo | null> {
@@ -47,5 +54,5 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  return { datInfo, loading, dataRevision, setDatInfo, bumpRevision, refreshDatInfo }
+  return { datInfo, loading, dataRevision, changesRevision, setDatInfo, bumpRevision, bumpChangesRevision, refreshDatInfo }
 })

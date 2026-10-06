@@ -39,6 +39,7 @@ export const api = {
   datReloadLanguage: () => request('/api/dat/reload-language', { method: 'POST' }),
   undo: () => request('/api/dat/undo', { method: 'POST' }),
   redo: () => request('/api/dat/redo', { method: 'POST' }),
+  datChanges: () => request<{ changes: any[] }>('/api/dat/changes'),
 
   // 资源
   techs: (params: Record<string, string | number> = {}) => request('/api/techs' + qs(params)),
@@ -95,6 +96,11 @@ export const api = {
   patchDelete: (name: string) => request(`/api/patch/${name}`, { method: 'DELETE' }),
   patchGenerate: (base: string, target: string) =>
     request('/api/patch/generate', { method: 'POST', body: JSON.stringify({ base, target }) }),
+  patchFromChanges: (indices?: number[]) =>
+    request<{ yaml: string; count: number; skipped: Array<{ index: number; reason: string }> }>(
+      '/api/patch/from-changes',
+      { method: 'POST', body: JSON.stringify(indices !== undefined ? { indices } : {}) }
+    ),
 
   // 版本 / 更新
   versionList: () => request('/api/version/list'),
