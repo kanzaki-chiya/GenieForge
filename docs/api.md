@@ -84,13 +84,21 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/patch/preview` | 预览：body `{patch}`（YAML 文本）或 `{path}`，不修改数据 |
-| POST | `/api/patch/apply` | 应用补丁（可整体撤销），返回逐步结果与汇总 |
+| POST | `/api/patch/preview` | 预览：body `{patch, overrides?, skip?}`（YAML 文本）或 `{path}`，不修改数据 |
+| POST | `/api/patch/apply` | 应用补丁（可整体撤销）：body 同预览，返回逐步结果与汇总 |
+| POST | `/api/patch/parse` | 解析补丁 YAML 为完整 spec：body `{yaml}`，失败返回 400 |
+| POST | `/api/patch/dump` | 完整 spec 序列化为 YAML：body `{spec}`（注释会丢失） |
+| POST | `/api/patch/resolve` | “记住选择”：body `{yaml, step, ids}`，把第 step 步按选中 id 展开为按名称精确匹配的多步 |
+| GET | `/api/patch/status` | 每个补丁在当前 dat 上的 dry_run 状态（未加载 dat 返回 409；坏文件只影响自己那一项） |
 | POST | `/api/patch/generate` | 从两个 dat 的差异生成补丁：body `{base, target}` |
 | POST | `/api/patch/from-changes` | 从本次修改记录生成补丁 YAML：body `{indices?}`，返回 `{yaml, count, skipped}` |
-| GET | `/api/patch/list` | 列出 `patches/` 目录下的补丁 |
+| GET | `/api/patch/list` | 列出 `patches/` 目录下的补丁（不含 `manifest.yaml`） |
 | POST | `/api/patch/save` | 保存补丁：body `{name, content}`（文件名只保留字母、数字、`_`、`-`） |
 | DELETE | `/api/patch/{name}` | 删除补丁 |
+
+- `overrides`：`{步骤下标: [条目 id]}`（JSON 键为字符串，接口层转 int），有 override 的步骤不走匹配、逐个 id 应用；越界 id 记 error 并触发回滚。
+- `skip`：`[步骤下标]`，记为 `skipped`（reason“已手动跳过”），不算错误、不触发回滚。
+- `conflict` 结果附 `candidate_details: [{id, name, display_name}]`（`candidates` id 列表保留）；`missing` 结果附 `suggestions`（最多 3 条，`[{id, name, display_name, score, reasons}]`）。
 
 ### 版本、Git 与更新
 
