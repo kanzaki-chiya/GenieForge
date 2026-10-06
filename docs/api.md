@@ -22,7 +22,7 @@
 |------|------|------|
 | POST | `/api/dat/load` | 加载 dat（body `{path}`），构建引用索引并加载语言文件 |
 | GET | `/api/dat/info` | 当前 dat 版本、路径、是否有未保存修改、各表数量 |
-| POST | `/api/dat/save` | 保存（body 可选 `{path}`，省略则覆盖原文件），并生成一条 `saved` 版本快照 |
+| POST | `/api/dat/save` | 保存（body 可选 `{path}`，省略则覆盖原文件），并生成一条 `saved` 版本快照；快照失败不影响保存，结果里附 `snapshot_error` |
 | POST | `/api/dat/reload-language` | 重新加载配置中的语言文件 |
 | POST | `/api/dat/undo` | 撤销一步 |
 | POST | `/api/dat/redo` | 重做一步 |
@@ -114,7 +114,12 @@
 `%LOCALAPPDATA%\GenieForge\versions`）：
 
 - `snapshots/<sha256>.dat`：快照文件，按内容哈希命名，**内容相同的 dat 只存一份**；
-- `index.json`：版本记录列表，原子写入（先写临时文件再 `os.replace`），损坏时按空列表处理。
+  文件名只接受 64 位小写十六进制哈希，索引里 `sha256` 非法的记录会被忽略（不会读写快照目录之外的文件）；
+- `index.json`：`{"next_id": N, "versions": [...]}`，原子写入（先写临时文件再 `os.replace`），
+  损坏时按空索引处理。旧的「纯记录列表」格式仍能读取，写回后自动升级为新格式。
+
+每次写入都会把 `next_id` 推到 `max(id) + 1`，**id 只增不减**：删掉最新版本后再建版本不会复用它的 id
+（避免前端已选中的对比版本悄悄指向别的版本）。
 
 每条记录为 `{id, label, kind, sha256, size, source_path, created_at}`，`kind` 为 `saved`（保存时自动生成）
 或 `imported`（`/api/version/import` 导入）。`id` 自增并持久化，重启后不重复。

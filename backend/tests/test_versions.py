@@ -6,6 +6,8 @@
 
 from pathlib import Path
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -129,6 +131,93 @@ def test_corrupt_index_does_not_raise(tmp_path):
     assert store.snapshot(src, "重新开始")["id"] == 1
 
 
+def test_ids_not_reused_after_deleting_newest(tmp_path):
+    store = VersionStore(tmp_path / "versions")
+    src = write_src(tmp_path, "a.dat")
+
+    first = store.snapshot(src, "a")
+    second = store.snapshot(src, "b")
+    assert [first["id"], second["id"]] == [1, 2]
+
+    assert store.delete(2) is True
+    third = store.snapshot(src, "c")
+    assert third["id"] == 3
+    assert [v["id"] for v in store.list()["versions"]] == [1, 3]
+    assert store.get(2) is None
+
+
+def test_legacy_index_format_is_read_and_upgraded(tmp_path):
+    d = tmp_path / "versions"
+    (d / "snapshots").mkdir(parents=True)
+    old_sha = "a" * 64
+    (d / "snapshots" / f"{old_sha}.dat").write_bytes(b"legacy")
+    (d / "index.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": 7,
+                    "label": "旧记录",
+                    "kind": "saved",
+                    "sha256": old_sha,
+                    "size": 6,
+                    "source_path": "D:/old.dat",
+                    "created_at": 1.0,
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    store = VersionStore(d)
+    assert [v["id"] for v in store.list()["versions"]] == [7]
+
+    rec = store.snapshot(write_src(tmp_path, "new.dat", b"new"), "新记录")
+    assert rec["id"] == 8  # 旧格式的 next_id 由 max(id)+1 推出
+    payload = json.loads((d / "index.json").read_text(encoding="utf-8"))
+    assert payload["next_id"] == 9
+    assert [v["id"] for v in payload["versions"]] == [7, 8]
+
+
+def test_invalid_sha256_record_ignored_and_delete_stays_inside(tmp_path):
+    d = tmp_path / "versions"
+    (d / "snapshots").mkdir(parents=True)
+    outside = d / "x.dat"  # snapshots/../x.dat，绝不能被删
+    outside.write_bytes(b"do-not-touch")
+    good_sha = "b" * 64
+    (d / "snapshots" / f"{good_sha}.dat").write_bytes(b"ok")
+    (d / "index.json").write_text(
+        json.dumps(
+            {
+                "next_id": 5,
+                "versions": [
+                    {"id": 1, "label": "坏", "kind": "saved", "sha256": "../x", "size": 1,
+                     "source_path": "", "created_at": 1.0},
+                    {"id": 2, "label": "好", "kind": "saved", "sha256": good_sha, "size": 2,
+                     "source_path": "", "created_at": 2.0},
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    store = VersionStore(d)
+    assert [v["id"] for v in store.list()["versions"]] == [2]
+    assert store.get(1) is None
+    assert store.snapshot_path(1) is None
+    assert store.delete(1) is False
+    assert outside.read_bytes() == b"do-not-touch"
+
+    with pytest.raises(ValueError):
+        store._snapshot_file("../x")
+
+    # 正常记录仍按哈希删除快照文件，且不碰目录外的东西
+    assert store.delete(2) is True
+    assert not (d / "snapshots" / f"{good_sha}.dat").exists()
+    assert outside.exists()
+
+
 # ------------------------------------------------------------------ 接口
 
 
@@ -211,11 +300,33 @@ def test_dat_save_records_snapshot(tmp_path, monkeypatch, clean_core, no_genieut
 
     r = client().post("/api/dat/save", json={})
     assert r.status_code == 200
+    assert "snapshot_error" not in r.json()
     versions = store.list()["versions"]
     assert len(versions) == 1
     assert versions[0]["kind"] == "saved"
     assert versions[0]["source_path"] == str(work)
     assert work.read_bytes() == b"new"
+
+
+def test_dat_save_survives_snapshot_failure(tmp_path, monkeypatch, clean_core, no_genieutils):
+    class BrokenStore:
+        def snapshot(self, *args, **kwargs):
+            raise OSError("磁盘已满")
+
+    monkeypatch.setattr(api_dat, "version_store", BrokenStore())
+    monkeypatch.setattr(api_dat, "dat_core", clean_core)
+
+    work = write_src(tmp_path, "work.dat", b"old")
+    clean_core._path = work
+    clean_core._dat = BytesDat(b"new")
+
+    r = client().post("/api/dat/save", json={})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["path"] == str(work)
+    assert body["sha256"]
+    assert "磁盘已满" in body["snapshot_error"]
+    assert work.read_bytes() == b"new"  # 保存本身仍然生效
 
 
 def test_load_version_for_compare(tmp_path, monkeypatch):
