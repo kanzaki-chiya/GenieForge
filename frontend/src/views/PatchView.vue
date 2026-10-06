@@ -24,7 +24,7 @@
       <div class="toolbar">
         <el-input v-model="currentName" size="small" placeholder="补丁名称" style="width: 220px" />
         <el-button size="small" @click="save">保存</el-button>
-        <span v-if="dirty" class="dirty-tip">未保存（含注释会丢失）</span>
+        <span v-if="dirty" class="dirty-tip">{{ hasCommentRaw ? '未保存（保存后注释会丢失）' : '未保存' }}</span>
         <el-segmented v-model="mode" :options="modeOptions" size="small" />
         <el-button size="small" type="primary" @click="preview">预览</el-button>
         <el-button size="small" type="primary" class="apply-btn" @click="applyPatch">
@@ -170,6 +170,12 @@ const steps = ref<any[]>([])
 const fullSpec = ref<any>({ version: 1, steps: [] })
 const rawYaml = ref('')
 const dirty = ref(false)
+// 程序性赋值（load / 删除 / 记住选择回填）不算用户修改：置位期间跳过 watch。
+let quietSteps = false
+function setSteps(rows: any[]) {
+  quietSteps = true
+  steps.value = rows
+}
 const mode = ref<'check' | 'edit'>('check')
 const modeOptions = [
   { label: '检查', value: 'check' },
@@ -181,7 +187,7 @@ const previewSummary = ref<any>(null)
 const selected = ref<Record<number, number[]>>({})
 const skipped = ref<Set<number>>(new Set())
 const rememberWarnings = ref<Record<number, string>>({})
-
+const hasCommentRaw = computed(() => hasComment(rawYaml.value))
 const tables = ['techs', 'effects', 'civs', 'units']
 const ops = ['set', 'add', 'multiply', 'relative', 'append', 'remove']
 
@@ -322,11 +328,11 @@ async function load(p: { name: string; content: string }) {
   try {
     const { spec } = await api.patchParse(p.content)
     fullSpec.value = spec
-    steps.value = specToRows(spec)
+    setSteps(specToRows(spec))
     if (hasComment(p.content)) ElMessage.warning('保存后注释会丢失')
   } catch (e: any) {
     fullSpec.value = { version: 1, steps: [] }
-    steps.value = []
+    setSteps([])
     ElMessage.error(e.message)
   }
   dirty.value = false
@@ -340,7 +346,7 @@ async function load(p: { name: string; content: string }) {
 
 function newPatch() {
   fullSpec.value = { version: 1, steps: [{ name: '', target: { table: 'techs' }, op: 'set', field: '', value: '' }] }
-  steps.value = [emptyStep()]
+  setSteps([emptyStep()])
   currentName.value = 'new_patch'
   rawYaml.value = ''
   dirty.value = true
@@ -363,7 +369,13 @@ function removeStep(i: number) {
   dirty.value = true
 }
 
-watch(steps, () => { dirty.value = true }, { deep: true })
+watch(steps, () => {
+  if (quietSteps) {
+    quietSteps = false
+    return
+  }
+  dirty.value = true
+}, { deep: true })
 
 function statusText(s: string) {
   const map: Record<string, string> = {
@@ -453,9 +465,10 @@ async function del(p: { name: string }) {
   try {
     await api.patchDelete(p.name)
     if (p.name === currentName.value) {
-      steps.value = []
+      setSteps([])
       fullSpec.value = { version: 1, steps: [] }
       previewResult.value = null
+      dirty.value = false
     }
     await refreshFileState()
   } catch (e: any) {
@@ -488,7 +501,7 @@ async function remember(stepIdx: number) {
     const r = await api.patchResolve(yaml, stepIdx, ids)
     const { spec } = await api.patchParse(r.yaml)
     fullSpec.value = spec
-    steps.value = specToRows(spec)
+    setSteps(specToRows(spec))
     rawYaml.value = r.yaml
     dirty.value = true
     // 步骤数变了（1→N），旧下标全部失效，清空重来。
