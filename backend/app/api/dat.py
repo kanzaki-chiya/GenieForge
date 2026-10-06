@@ -12,7 +12,7 @@ from ..core.names import name_resolver
 from ..core.refs import ref_index
 from ..core.unit_index import unit_index
 from ..core.version import version_store
-from ..deps import dat_core
+from ..deps import dat_core, require_dat
 from ..schemas import DatLoadRequest, DatSaveRequest
 
 router = APIRouter(prefix="/dat", tags=["dat"])
@@ -95,3 +95,9 @@ def redo():
     if desc is None:
         raise HTTPException(409, "没有可重做的操作")
     return {"status": "ok", "description": desc}
+
+
+@router.get("/changes")
+def get_changes():
+    core = require_dat()
+    return {"changes": core.changes()}

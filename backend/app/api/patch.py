@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+import yaml
+from fastapi import APIRouter, Body, HTTPException
 
 from ..core import diff as diff_engine
 from ..core import patch as patch_engine
@@ -51,6 +52,115 @@ def generate_patch(body: PatchGenerateRequest):
         "target": body.target,
         "summary": report["summary"],
         "patch": patch_text,
+    }
+
+
+def _build_tech_signature(d, tech_id: int, field: str, old_val):
+    """构造科技签名作为兜底匹配；尽量从 old 反推修改前的值。"""
+    try:
+        techs = getattr(d, "techs", [])
+        if not (0 <= tech_id < len(techs)):
+            return None
+        tech = techs[tech_id]
+        sig = patch_engine._signature(tech)
+        if field == "effect_id":
+            sig["effect_id"] = old_val
+        elif field == "required_techs":
+            sig["required_techs"] = list(old_val) if old_val is not None else []
+        elif field == "resource_costs":
+            if isinstance(old_val, (list, tuple)):
+                sig["resource_costs"] = [
+                    (c.type, c.amount) if hasattr(c, "type")
+                    else (c["type"], c["amount"]) if isinstance(c, dict)
+                    else tuple(c)
+                    for c in old_val
+                ]
+        elif field.startswith("resource_costs."):
+            parts = field.split(".")
+            idx = None
+            if len(parts) > 1:
+                if parts[1].isdigit():
+                    idx = int(parts[1])
+                elif parts[1] in getattr(patch_engine, "_RESOURCE_ALIASES", {}):
+                    alias_val = patch_engine._RESOURCE_ALIASES[parts[1]]
+                    for i, rc in enumerate(getattr(tech, "resource_costs", [])):
+                        if getattr(rc, "type", None) == alias_val:
+                            idx = i
+                            break
+            if idx is not None and 0 <= idx < len(sig.get("resource_costs", [])):
+                cur_cost = list(sig["resource_costs"][idx])
+                if len(parts) > 2 and parts[2] == "amount":
+                    cur_cost[1] = old_val
+                elif len(parts) > 2 and parts[2] == "type":
+                    cur_cost[0] = old_val
+                sig["resource_costs"][idx] = tuple(cur_cost)
+        # 转换为列表便于 YAML 干净序列化
+        sig["resource_costs"] = [list(c) for c in sig["resource_costs"]]
+        sig["required_techs"] = list(sig["required_techs"])
+        return sig
+    except Exception:
+        # 无法反推修改前 signature 时，回退取当前值
+        try:
+            sig = patch_engine._signature(tech)
+            sig["resource_costs"] = [list(c) for c in sig["resource_costs"]]
+            sig["required_techs"] = list(sig["required_techs"])
+            return sig
+        except Exception:
+            return None
+
+
+@router.post("/from-changes")
+def patch_from_changes(body: dict = Body(default_factory=dict)):
+    """把选中的修改记录转换为语义补丁 YAML。"""
+    core = require_dat()
+    d = core.get()
+    all_changes = core.changes()
+
+    indices = body.get("indices") if isinstance(body, dict) else None
+    if indices is not None:
+        idx_set = set(indices)
+        selected = [c for c in all_changes if c.get("index") in idx_set]
+    else:
+        selected = all_changes
+
+    steps = []
+    skipped = []
+
+    for c in selected:
+        c_idx = c.get("index")
+        if not c.get("convertible"):
+            skipped.append({
+                "index": c_idx,
+                "reason": c.get("reason", "不可转换为补丁步骤"),
+            })
+            continue
+
+        table = c["table"]
+        name = c["name"]
+        field = c["field"]
+        value = c["new"]
+        step_name = f"{name}.{field}"
+
+        target = {"table": table, "name": name}
+        if table == "techs":
+            sig = _build_tech_signature(d, c["id"], field, c.get("old"))
+            if sig:
+                target["signature"] = sig
+
+        steps.append({
+            "name": step_name,
+            "target": target,
+            "op": "set",
+            "field": field,
+            "value": value,
+        })
+
+    spec = {"version": 1, "steps": steps}
+    yaml_text = yaml.safe_dump(spec, allow_unicode=True, sort_keys=False)
+    return {
+        "yaml": yaml_text,
+        "count": len(steps),
+        "skipped": skipped,
     }
 
 

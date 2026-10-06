@@ -62,5 +62,8 @@ def patch_civ(civ_id: int, body: dict):
     if field is None:
         raise HTTPException(400, "缺少 field")
     value = body.get("value")
-    dat_core.edit_field(c, field, value, f"civs[{civ_id}].{field}")
+    dat_core.edit_field(
+        c, field, value, f"civs[{civ_id}].{field}",
+        meta={"table": "civs", "id": civ_id, "field": field},
+    )
     return {"id": civ_id, "field": field, "value": value}

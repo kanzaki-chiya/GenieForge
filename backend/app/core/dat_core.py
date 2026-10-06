@@ -134,9 +134,14 @@ class DatCore:
             }
 
     # ------------------------------------------------------------------ 撤销/重做
-    def push_command(self, desc: str, undo: Callable, redo: Callable) -> None:
+    def push_command(
+        self, desc: str, undo: Callable, redo: Callable, meta: Optional[dict] = None
+    ) -> None:
         with self._lock:
-            self._undo_stack.append({"desc": desc, "undo": undo, "redo": redo})
+            cmd = {"desc": desc, "undo": undo, "redo": redo}
+            if meta is not None:
+                cmd["meta"] = meta
+            self._undo_stack.append(cmd)
             self._redo_stack.clear()
             self._dirty = True
 
@@ -167,22 +172,157 @@ class DatCore:
             return bool(self._redo_stack)
 
     # ------------------------------------------------------------------ 字段级命令
-    def edit_field(self, obj, dotted: str, value, desc: str) -> None:
+    def edit_field(
+        self, obj, dotted: str, value, desc: str, meta: Optional[dict] = None
+    ) -> None:
         """按点路径修改字段并压入撤销栈（命令模式）。"""
         # 子表整体替换：dict 列表 → 对象列表（见 subtable.coerce_rows）
-        from .subtable import coerce_rows
+        from .subtable import coerce_rows, rows_to_dicts
 
         field_name = dotted.split(".")[-1]
-        value = coerce_rows(field_name, value)
-        old = set_field(obj, dotted, value)
+        coerced = coerce_rows(field_name, value)
+        old = set_field(obj, dotted, coerced)
+
+        cmd_meta = None
+        if meta is not None:
+            def _clean(v):
+                if isinstance(v, (list, tuple)):
+                    if v and hasattr(type(v[0]), "__slots__"):
+                        return rows_to_dicts(v)
+                    return [dict(x) if isinstance(x, dict) else x for x in v]
+                return v
+
+            cmd_meta = dict(meta)
+            cmd_meta["old"] = _clean(old)
+            cmd_meta["new"] = _clean(value)
+
         self.push_command(
             desc,
             undo=lambda: set_field(obj, dotted, old),
-            redo=lambda: set_field(obj, dotted, value),
+            redo=lambda: set_field(obj, dotted, coerced),
+            meta=cmd_meta,
         )
 
     def read_field(self, obj, dotted: str):
         return get_field(obj, dotted)
+
+    # ------------------------------------------------------------------ 结构化修改记录
+    def changes(self) -> list[dict]:
+        """返回撤销栈中的修改记录（按顺序，合并同字段修改）。"""
+        with self._lock:
+            if self._dat is None:
+                return []
+            d = self._dat
+
+            meta_positions: dict[tuple, int] = {}
+            entries: list[dict] = []
+
+            for cmd in self._undo_stack:
+                meta = cmd.get("meta")
+                if meta is None:
+                    entries.append({"type": "no_meta", "desc": cmd.get("desc", "")})
+                else:
+                    key = (meta.get("table"), meta.get("id"), meta.get("civ"), meta.get("field"))
+                    if key not in meta_positions:
+                        meta_positions[key] = len(entries)
+                        entries.append({
+                            "type": "meta",
+                            "table": meta.get("table"),
+                            "id": meta.get("id"),
+                            "civ": meta.get("civ"),
+                            "field": meta.get("field"),
+                            "old": meta.get("old"),
+                            "new": meta.get("new"),
+                        })
+                    else:
+                        idx = meta_positions[key]
+                        entries[idx]["new"] = meta.get("new")
+
+            def _get_name(table: str, eid: int, civ: Optional[int]) -> str:
+                try:
+                    if table == "units":
+                        civs = getattr(d, "civs", [])
+                        if civ is not None and 0 <= civ < len(civs):
+                            c = civs[civ]
+                            units = getattr(c, "units", [])
+                            if 0 <= eid < len(units):
+                                u = units[eid]
+                                if u is not None:
+                                    return str(getattr(u, "name", "") or "")
+                        return ""
+                    objs = getattr(d, table, [])
+                    if 0 <= eid < len(objs):
+                        obj = objs[eid]
+                        if obj is not None:
+                            return str(getattr(obj, "name", "") or "")
+                except Exception:
+                    pass
+                return ""
+
+            def _check_unique(table: str, name: str) -> tuple[bool, int]:
+                if table == "units":
+                    return False, 0
+                try:
+                    objs = getattr(d, table, [])
+                    count = sum(1 for o in objs if o is not None and getattr(o, "name", None) == name)
+                    return (count == 1), count
+                except Exception:
+                    return False, 0
+
+            result: list[dict] = []
+            for entry in entries:
+                if entry["type"] == "no_meta":
+                    result.append({
+                        "index": len(result),
+                        "desc": entry["desc"],
+                        "convertible": False,
+                        "reason": "此类操作暂不支持转补丁",
+                    })
+                else:
+                    if entry["old"] == entry["new"]:
+                        continue
+
+                    table = entry["table"]
+                    eid = entry["id"]
+                    civ = entry["civ"]
+                    field = entry["field"]
+                    name = _get_name(table, eid, civ)
+
+                    if table == "units":
+                        convertible = False
+                        reason = "单位位于各文明下，补丁引擎暂不支持定位"
+                    elif not name.strip():
+                        convertible = False
+                        reason = "条目内部名称为空，补丁引擎无法定位"
+                    else:
+                        is_unique, count = _check_unique(table, name)
+                        if not is_unique:
+                            convertible = False
+                            if count == 0:
+                                reason = f"在表 '{table}' 中未找到内部名称为 '{name}' 的条目"
+                            else:
+                                reason = f"内部名称 '{name}' 在表 '{table}' 中不唯一（存在 {count} 个同名条目），补丁引擎无法唯一匹配"
+                        else:
+                            convertible = True
+                            reason = None
+
+                    item = {
+                        "index": len(result),
+                        "table": table,
+                        "id": eid,
+                        "field": field,
+                        "old": entry["old"],
+                        "new": entry["new"],
+                        "name": name,
+                        "convertible": convertible,
+                    }
+                    if civ is not None:
+                        item["civ"] = civ
+                    if reason is not None:
+                        item["reason"] = reason
+                    result.append(item)
+
+            return result
 
 
 # 进程内单例

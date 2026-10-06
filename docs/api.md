@@ -26,6 +26,7 @@
 | POST | `/api/dat/reload-language` | 重新加载配置中的语言文件 |
 | POST | `/api/dat/undo` | 撤销一步 |
 | POST | `/api/dat/redo` | 重做一步 |
+| GET | `/api/dat/changes` | 查看本次修改记录（撤销栈中的结构化改动） |
 
 ### 数据表
 
@@ -85,6 +86,7 @@
 | POST | `/api/patch/preview` | 预览：body `{patch}`（YAML 文本）或 `{path}`，不修改数据 |
 | POST | `/api/patch/apply` | 应用补丁（可整体撤销），返回逐步结果与汇总 |
 | POST | `/api/patch/generate` | 从两个 dat 的差异生成补丁：body `{base, target}` |
+| POST | `/api/patch/from-changes` | 从本次修改记录生成补丁 YAML：body `{indices?}`，返回 `{yaml, count, skipped}` |
 | GET | `/api/patch/list` | 列出 `patches/` 目录下的补丁 |
 | POST | `/api/patch/save` | 保存补丁：body `{name, content}`（文件名只保留字母、数字、`_`、`-`） |
 | DELETE | `/api/patch/{name}` | 删除补丁 |
