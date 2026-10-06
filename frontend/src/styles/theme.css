@@ -1,23 +1,61 @@
-/* GenieForge 深色主题（IDEA Darcula 风格）。
+/* GenieForge 深色主题（帝国时代黄金配色风格）。
    基于 Element Plus dark mode，覆盖关键 CSS 变量 + 全局基础样式。 */
 
+:root {
+  color-scheme: dark;
+  --app: #121417;         /* 应用窗口底 */
+  --panel: #16191d;       /* 侧栏/列表 */
+  --raise: #1c2026;       /* 卡片/输入框抬起 */
+  --line: #2a2e35;
+  --line-strong: #3a3f49;
+  --fg: #e6e8eb;
+  --fg-2: #c3c8cf;
+  --muted: #99a0ab;
+  --gold: #e0a43a;        /* 强调：帝国时代的黄金 */
+  --gold-ink: #1a1407;
+  --gold-bg: #2b2412;
+  --gold-edge: #5c4a1c;
+  --blue: #5a9be6;        /* 新增 / 命中 */
+  --blue-bg: #14283d;
+  --red: #ec7a88;         /* 删除 / 未匹配 */
+  --red-bg: #35191e;
+  --link: #7cc4d6;
+
+  --f-body: 'Microsoft YaHei', 'PingFang SC', system-ui, -apple-system, sans-serif;
+  --f-mono: 'Cascadia Mono', Consolas, 'Segoe UI Mono', monospace;
+}
+
 html.dark {
-  --el-bg-color: #1e1f22;
-  --el-bg-color-overlay: #2b2d30;
-  --el-bg-color-page: #1e1f22;
-  --el-border-color: #3c3f41;
-  --el-border-color-light: #3c3f41;
-  --el-border-color-lighter: #34373a;
-  --el-border-color-extra-light: #2e3133;
-  --el-text-color-primary: #e6e6e6;
-  --el-text-color-regular: #d4d4d4;
-  --el-text-color-secondary: #9a9a9a;
-  --el-text-color-placeholder: #6f6f6f;
-  --el-fill-color: #2b2d30;
-  --el-fill-color-light: #2b2d30;
-  --el-fill-color-lighter: #232528;
-  --el-fill-color-blank: #1e1f22;
-  --el-color-primary: #3574f0;
+  --el-bg-color: var(--app);
+  --el-bg-color-overlay: var(--raise);
+  --el-bg-color-page: var(--app);
+  --el-border-color: var(--line);
+  --el-border-color-light: var(--line);
+  --el-border-color-lighter: #23272e;
+  --el-border-color-extra-light: #1b1e23;
+  --el-text-color-primary: var(--fg);
+  --el-text-color-regular: var(--fg-2);
+  --el-text-color-secondary: var(--muted);
+  --el-text-color-placeholder: #6a717c;
+  --el-fill-color: var(--raise);
+  --el-fill-color-light: var(--raise);
+  --el-fill-color-lighter: var(--panel);
+  --el-fill-color-blank: var(--app);
+
+  /* Element Plus 强调色：金色 */
+  --el-color-primary: #e0a43a;
+  --el-color-primary-light-3: #a27930;
+  --el-color-primary-light-5: #795c29;
+  --el-color-primary-light-7: #503f22;
+  --el-color-primary-light-8: #3b311e;
+  --el-color-primary-light-9: #27221b;
+  --el-color-primary-dark-2: #b3832e;
+
+  /* 成功 / 警告 / 危险 / 消息色 */
+  --el-color-success: #5a9be6;
+  --el-color-warning: #e0a43a;
+  --el-color-danger: #ec7a88;
+  --el-color-info: var(--muted);
 }
 
 html,
@@ -25,16 +63,28 @@ body,
 #app {
   height: 100%;
   margin: 0;
-  background: #1e1f22;
-  color: #d4d4d4;
-  font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+  background: var(--app);
+  color: var(--fg);
+  font-family: var(--f-body);
+  font-size: 13px;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+.mono {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 紧凑表格，贴合 AGE 高密度风格 */
 .el-table {
-  --el-table-header-bg-color: #2b2d30;
-  --el-table-row-hover-bg-color: #2b2d30;
-  --el-table-border-color: #34373a;
+  --el-table-header-bg-color: #181b20;
+  --el-table-row-hover-bg-color: var(--raise);
+  --el-table-border-color: var(--line);
   font-size: 12px;
 }
 .el-table .cell {
@@ -47,15 +97,15 @@ body,
 
 /* 滚动条美化 */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3c3f41;
-  border-radius: 5px;
+  background: var(--line-strong);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4d50;
+  background: #505663;
 }
 ::-webkit-scrollbar-track {
   background: transparent;

@@ -84,6 +84,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '../stores'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
@@ -94,6 +95,7 @@ import { useCopyPaste } from '../composables/useCopyPaste'
 
 const compare = useCompare()
 const cp = useCopyPaste('civs')
+const appStore = useAppStore()
 const rows = ref<any[]>([])
 const allRows = ref<any[]>([])
 const detail = ref<any>(null)
@@ -150,6 +152,7 @@ async function save(field: string, value: unknown) {
   try {
     await api.patchCiv(detail.value.id, { field, value })
     setDetail(field, value)
+    await appStore.refreshDatInfo()
     ElMessage.success({ message: `${field} 已保存`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
