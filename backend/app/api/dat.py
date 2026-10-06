@@ -11,7 +11,7 @@ from ..config import config as app_config
 from ..core.names import name_resolver
 from ..core.refs import ref_index
 from ..core.unit_index import unit_index
-from ..core.version import version_store
+from ..core.version import KIND_SAVED, version_store
 from ..deps import dat_core, require_dat
 from ..schemas import DatLoadRequest, DatSaveRequest
 
@@ -73,11 +73,7 @@ def save_dat(body: DatSaveRequest | None = None):
         result = dat_core.save(body.path if body else None)
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    version_store.record(
-        description=f"保存 dat（dirty={dat_core.dirty}）",
-        path=result["path"],
-        sha256=result["sha256"],
-    )
+    version_store.snapshot(result["path"], "保存 dat", KIND_SAVED)
     return result
 
 

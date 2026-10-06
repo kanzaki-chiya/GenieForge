@@ -22,7 +22,7 @@
 |------|------|------|
 | POST | `/api/dat/load` | 加载 dat（body `{path}`），构建引用索引并加载语言文件 |
 | GET | `/api/dat/info` | 当前 dat 版本、路径、是否有未保存修改、各表数量 |
-| POST | `/api/dat/save` | 保存（body 可选 `{path}`，省略则覆盖原文件），并记录版本 |
+| POST | `/api/dat/save` | 保存（body 可选 `{path}`，省略则覆盖原文件），并生成一条 `saved` 版本快照 |
 | POST | `/api/dat/reload-language` | 重新加载配置中的语言文件 |
 | POST | `/api/dat/undo` | 撤销一步 |
 | POST | `/api/dat/redo` | 重做一步 |
@@ -76,7 +76,8 @@
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/diff` | 对比两个 dat（body `{base, target}`），返回各表增删数量、逐条变更与 ID 漂移 |
-| POST | `/api/diff/target/load` | 加载一个对比用的目标 dat（body `{path}`），不影响当前编辑的 dat |
+| POST | `/api/diff/target/load` | 按路径加载一个对比用的目标 dat（body `{path}`），不影响当前编辑的 dat |
+| POST | `/api/diff/target/load-version` | 按版本 id 加载对比目标（body `{id}`），返回内容同 `/target/load`，另附 `version` |
 | GET | `/api/diff/target/entity/{table}/{id}?civ=` | 读取目标 dat 中某条目的详情（结构与当前 dat 详情相同） |
 
 ### 补丁
@@ -95,8 +96,10 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/version/list` | 本次运行内的保存记录 |
-| POST | `/api/version/checkout` | 重新加载某个版本的文件：body `{id}` |
+| GET | `/api/version/list` | 版本列表：`{versions, total_size}`（`total_size` 为快照目录实际占用字节） |
+| POST | `/api/version/checkout` | 回滚到某个版本：body `{id, force?}`，加载快照内容，工作路径仍是原 dat，需保存才写回 |
+| POST | `/api/version/import` | 把任意 dat 存为版本：body `{path, label}`，路径不存在返回 400 |
+| DELETE | `/api/version/{id}` | 删除版本（没有其他记录引用同一快照时一并删除快照文件） |
 | POST | `/api/git/init` | 在补丁目录初始化 Git 仓库 |
 | GET | `/api/git/status` | 补丁目录的 Git 状态 |
 | GET | `/api/git/log?n=` | 提交历史 |
@@ -104,6 +107,18 @@
 | POST | `/api/git/checkout` | 切换到某提交：body `{ref}` |
 | GET | `/api/update/check` | 检查 GitHub Releases 是否有新版本 |
 | POST | `/api/update/download` | 下载更新包到应用缓存目录：body `{asset_url, sha256?}`，`asset_url` 必须是本项目 GitHub Release 的下载地址 |
+
+#### 版本快照存放位置
+
+`platformdirs.user_data_dir("GenieForge", appauthor=False) / "versions"`（Windows 下即
+`%LOCALAPPDATA%\GenieForge\versions`）：
+
+- `snapshots/<sha256>.dat`：快照文件，按内容哈希命名，**内容相同的 dat 只存一份**；
+- `index.json`：版本记录列表，原子写入（先写临时文件再 `os.replace`），损坏时按空列表处理。
+
+每条记录为 `{id, label, kind, sha256, size, source_path, created_at}`，`kind` 为 `saved`（保存时自动生成）
+或 `imported`（`/api/version/import` 导入）。`id` 自增并持久化，重启后不重复。
+`POST /api/dat/save` 成功后自动生成一条 `saved` 记录。
 
 ## 配置项
 
