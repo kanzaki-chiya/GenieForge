@@ -145,19 +145,6 @@
       <RelationPanel table="civs" :entity-id="detail?.id ?? null" />
     </div>
 
-    <!-- 对比抽屉 -->
-    <DiffDrawer
-      v-if="detail"
-      v-model="diffVisible"
-      :table="'civs'"
-      :entity-id="detail.id"
-      :title="detail.name"
-      :baseline="detail"
-      :scalar-fields="scalarFields"
-      :list-fields="listFields"
-      @apply="onApplyDiff"
-    />
-
     <!-- 改动转为补丁对话框 -->
     <PatchFromChangesDialog v-model="patchDialogVisible" />
   </div>
@@ -165,14 +152,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAppStore, useHistoryStore, getEntityKey } from '../stores'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import Field from '../components/Field.vue'
-import DiffDrawer from '../components/DiffDrawer.vue'
 import RelationPanel from '../components/RelationPanel.vue'
 import PatchFromChangesDialog from '../components/PatchFromChangesDialog.vue'
 import { useCopyPaste } from '../composables/useCopyPaste'
@@ -181,6 +167,7 @@ const cp = useCopyPaste('civs')
 const appStore = useAppStore()
 const historyStore = useHistoryStore()
 const route = useRoute()
+const router = useRouter()
 const patchDialogVisible = ref(false)
 
 const rows = ref<any[]>([])
@@ -189,19 +176,10 @@ const q = ref('')
 const detail = ref<any>(null)
 const currentId = ref(-1)
 const effectItems = ref<{ value: number; label: string }[]>([])
-const diffVisible = ref(false)
-
-const scalarFields = [
-  { key: 'name', label: '名称' },
-  { key: 'player_type', label: 'Player Type' },
-  { key: 'icon_set', label: 'Icon Set' },
-  { key: 'tech_tree_id', label: '科技树' },
-  { key: 'team_bonus_id', label: '团队加成' },
-]
-const listFields = [{ key: 'resources', label: '资源' }]
 
 function openCompare() {
-  diffVisible.value = true
+  if (!detail.value) return
+  router.push({ path: `/compare/civs/${detail.value.id}` })
 }
 
 function currentEntityKey(): string {
@@ -286,27 +264,6 @@ async function save(field: string, value: unknown) {
     await appStore.refreshDatInfo()
     appStore.bumpChangesRevision()
     ElMessage.success({ message: `${field} 已保存`, duration: 1000 })
-  } catch (e: any) {
-    ElMessage.error(e.message)
-  }
-}
-
-function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
-  if (p.list) {
-    saveTable(p.field, p.value as unknown[])
-  } else {
-    save(p.field, p.value)
-  }
-}
-
-async function saveTable(field: string, rowsData: unknown[]) {
-  if (!detail.value) return
-  try {
-    await api.patchCiv(detail.value.id, { field, value: rowsData })
-    detail.value[field] = rowsData
-    await appStore.refreshDatInfo()
-    appStore.bumpChangesRevision()
-    ElMessage.success({ message: `${field} 已更新`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
   }

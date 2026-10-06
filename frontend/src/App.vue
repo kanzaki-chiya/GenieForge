@@ -190,6 +190,11 @@ function isNavActive(path: string): boolean {
   if (path === '/') {
     return route.path === '/'
   }
+  // 并排对比页挂在对应数据表的导航下
+  if (route.path.startsWith('/compare/')) {
+    const table = route.path.split('/')[2]
+    return path === `/${table}`
+  }
   return route.path.startsWith(path)
 }
 

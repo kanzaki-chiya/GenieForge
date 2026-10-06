@@ -220,19 +220,6 @@
       <RelationPanel table="techs" :entity-id="detail?.id ?? null" />
     </div>
 
-    <!-- 对比抽屉 -->
-    <DiffDrawer
-      v-if="detail"
-      v-model="diffVisible"
-      :table="'techs'"
-      :entity-id="detail.id"
-      :title="detail.name"
-      :baseline="detail"
-      :scalar-fields="scalarFields"
-      :list-fields="listFields"
-      @apply="onApplyDiff"
-    />
-
     <!-- 改动转为补丁对话框 -->
     <PatchFromChangesDialog v-model="patchDialogVisible" />
   </div>
@@ -248,7 +235,6 @@ import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import SubTable from '../components/SubTable.vue'
 import Field from '../components/Field.vue'
-import DiffDrawer from '../components/DiffDrawer.vue'
 import RelationPanel from '../components/RelationPanel.vue'
 import PatchFromChangesDialog from '../components/PatchFromChangesDialog.vue'
 import { useCopyPaste } from '../composables/useCopyPaste'
@@ -267,24 +253,6 @@ const pageSize = 50
 const q = ref('')
 const detail = ref<any>(null)
 const currentId = ref(-1)
-const diffVisible = ref(false)
-
-const scalarFields = [
-  { key: 'name', label: '名称' },
-  { key: 'type', label: '类型' },
-  { key: 'civ', label: '文明' },
-  { key: 'repeatable', label: '可重复' },
-  { key: 'full_tech_mode', label: 'Full Tech Mode' },
-  { key: 'icon_id', label: '图标' },
-  { key: 'effect_id', label: '效果' },
-  { key: 'language_dll_name', label: '语言名' },
-  { key: 'language_dll_description', label: '描述' },
-  { key: 'language_dll_help', label: '帮助' },
-  { key: 'language_dll_tech_tree', label: '科技树' },
-  { key: 'required_techs', label: '前置科技' },
-  { key: 'resource_costs', label: '费用' },
-]
-const listFields = [{ key: 'research_locations', label: '研究位置' }]
 
 const techItems = ref<{ value: number; label: string }[]>([])
 const effectItems = ref<{ value: number; label: string }[]>([])
@@ -304,7 +272,8 @@ function jumpTo(path: string, id: number) {
 }
 
 function openCompare() {
-  diffVisible.value = true
+  if (!detail.value) return
+  router.push({ path: `/compare/techs/${detail.value.id}` })
 }
 
 function currentEntityKey(): string {
@@ -440,14 +409,6 @@ async function saveTable(field: string, rowsData: unknown[]) {
     ElMessage.success({ message: `${field} 已更新`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
-  }
-}
-
-function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
-  if (p.list) {
-    saveTable(p.field, p.value as unknown[])
-  } else {
-    save(p.field, p.value)
   }
 }
 

@@ -113,19 +113,6 @@
       <RelationPanel table="effects" :entity-id="detail?.id ?? null" />
     </div>
 
-    <!-- 对比抽屉 -->
-    <DiffDrawer
-      v-if="detail"
-      v-model="diffVisible"
-      :table="'effects'"
-      :entity-id="detail.id"
-      :title="detail.name"
-      :baseline="detail"
-      :scalar-fields="scalarFields"
-      :list-fields="listFields"
-      @apply="onApplyDiff"
-    />
-
     <!-- 改动转为补丁对话框 -->
     <PatchFromChangesDialog v-model="patchDialogVisible" />
   </div>
@@ -133,13 +120,12 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAppStore, useHistoryStore, getEntityKey } from '../stores'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
-import DiffDrawer from '../components/DiffDrawer.vue'
 import RelationPanel from '../components/RelationPanel.vue'
 import PatchFromChangesDialog from '../components/PatchFromChangesDialog.vue'
 import Field from '../components/Field.vue'
@@ -149,6 +135,7 @@ const cp = useCopyPaste('effects')
 const appStore = useAppStore()
 const historyStore = useHistoryStore()
 const route = useRoute()
+const router = useRouter()
 const patchDialogVisible = ref(false)
 
 const rows = ref<any[]>([])
@@ -160,13 +147,10 @@ const detail = ref<any>(null)
 const currentId = ref(-1)
 const unitItems = ref<{ value: number; label: string }[]>([])
 const techItems = ref<{ value: number; label: string }[]>([])
-const diffVisible = ref(false)
-
-const scalarFields = [{ key: 'name', label: '名称' }]
-const listFields = [{ key: 'effect_commands', label: '效果命令' }]
 
 function openCompare() {
-  diffVisible.value = true
+  if (!detail.value) return
+  router.push({ path: `/compare/effects/${detail.value.id}` })
 }
 
 function currentEntityKey(): string {
@@ -195,14 +179,6 @@ function registerDetailBaseline(data: any) {
   const key = getEntityKey('effects', data.id)
   historyStore.recordBaseline(key, data, ['name'])
   historyStore.syncEntity(key, data)
-}
-
-function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
-  if (p.list) {
-    saveTable(p.value as unknown[])
-  } else {
-    save(p.field, p.value)
-  }
 }
 
 async function fetch() {
