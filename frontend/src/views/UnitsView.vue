@@ -288,7 +288,7 @@
           <div class="group-title">资源存储</div>
           <div class="costs">
             <div v-for="(rs, i) in detail.resource_storages" :key="i" class="cost-row">
-              <EnumSelect meta-name="resource-types" :model-value="rs.type" @change="(v) => save(`resource_storages.${i}.type`, v)" />
+              <EnumSelect meta-name="civ-resources" :model-value="rs.type" @change="(v) => save(`resource_storages.${i}.type`, v)" />
               <Field
                 :label="`存储 ${i}`"
                 :modified="isFieldModified(`resource_storages.${i}.amount`)"
