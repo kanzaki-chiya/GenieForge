@@ -89,7 +89,7 @@
           </div>
 
           <div class="group-title">效果命令（{{ detail.effect_commands.length }} 条）</div>
-          <div v-for="(ec, i) in detail.effect_commands" :key="i" class="cmd">
+          <div v-for="(ec, i) in shownCommands" :key="i" class="cmd">
             <div class="cmd-head">
               <span class="cmd-idx mono">#{{ i }}</span>
               <EnumSelect meta-name="effect-types" :model-value="ec.type" style="width: 200px" @change="(v) => onTypeChange(i, v)" />
@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAppStore, useHistoryStore, getEntityKey } from '../stores'
@@ -205,10 +205,33 @@ async function loadRefs() {
   unitItems.value = (un.items || []).map((x: any) => ({ value: x.unit_id, label: x.display_name || x.name }))
 }
 
+// 命令多的效果（科技树可达近 200 条）一次性渲染会卡住切换：先渲染一批，其余逐帧追加
+const CMD_BATCH = 30
+const shownCount = ref(Infinity)
+let renderToken = 0
+const shownCommands = computed(() => (detail.value?.effect_commands || []).slice(0, shownCount.value))
+
+function renderCommandsProgressively() {
+  const token = ++renderToken
+  shownCount.value = CMD_BATCH
+  const step = () => {
+    if (token !== renderToken) return
+    const total = detail.value?.effect_commands?.length || 0
+    if (shownCount.value + CMD_BATCH >= total) {
+      shownCount.value = Infinity
+      return
+    }
+    shownCount.value += CMD_BATCH
+    requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
 async function selectById(id: number) {
   currentId.value = id
   const d = await api.effectDetail(id)
   registerDetailBaseline(d)
+  renderCommandsProgressively()
   detail.value = d
 }
 
