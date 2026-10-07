@@ -1,6 +1,7 @@
 """语义补丁：应用 / 生成 / 预览 / 文件管理。"""
 
 from pathlib import Path
+from typing import Optional
 
 import yaml
 from fastapi import APIRouter, Body, HTTPException
@@ -24,23 +25,59 @@ def _read_text(body) -> str:
     return text or ""
 
 
+def _body_dict(body) -> dict:
+    """Pydantic v1/v2 兼容：请求体转 dict。"""
+    if hasattr(body, "model_dump"):
+        return body.model_dump()
+    if hasattr(body, "dict"):
+        return body.dict()
+    return body if isinstance(body, dict) else {}
+
+
+def _int_overrides(raw) -> Optional[dict[int, list[int]]]:
+    """JSON 键为字符串，转成 int 下标；非法键/值直接丢弃。"""
+    if not raw:
+        return None
+    out: dict[int, list[int]] = {}
+    items = raw.items() if isinstance(raw, dict) else []
+    for k, v in items:
+        try:
+            idx = int(k)
+        except (TypeError, ValueError):
+            continue
+        ids = list(v) if isinstance(v, (list, tuple)) else [v]
+        clean = [i for i in ids if isinstance(i, int) and not isinstance(i, bool)]
+        out[idx] = clean
+    return out or None
+
+
 @router.post("/apply")
 def apply_patch(body: PatchApplyRequest):
     core = require_dat()
-    text = _read_text(body.dict() if hasattr(body, "dict") else body)
+    data = _body_dict(body)
+    text = _read_text(data)
     if not text:
         return {"error": "缺少 patch 内容"}
-    return patch_engine.apply(core.get(), text)
+    return patch_engine.apply(
+        core.get(), text,
+        overrides=_int_overrides(data.get("overrides")),
+        skip=data.get("skip"),
+    )
 
 
 @router.post("/preview")
 def preview_patch(body: dict):
     """dry-run 预览：解析步骤命中情况与旧值/新值，不落库。"""
     core = require_dat()
-    text = _read_text(body)
+    data = body if isinstance(body, dict) else {}
+    text = _read_text(data)
     if not text:
         return {"error": "缺少 patch 内容"}
-    return patch_engine.apply(core.get(), text, dry_run=True)
+    return patch_engine.apply(
+        core.get(), text, dry_run=True,
+        overrides=_int_overrides(data.get("overrides")),
+        skip=data.get("skip"),
+    )
 
 
 @router.post("/generate")
@@ -209,6 +246,52 @@ def patch_from_changes(body: dict = Body(default_factory=dict)):
     }
 
 
+# ------------------------------------------------------------------ 解析与序列化
+
+@router.post("/parse")
+def parse_patch(body: dict):
+    """解析补丁 YAML 为完整 spec（version / based_on / steps 原样返回）。"""
+    text = (body.get("yaml") if isinstance(body, dict) else None) or ""
+    try:
+        spec = patch_engine.parse(text)
+    except Exception as exc:
+        raise HTTPException(400, f"补丁解析失败：{exc}")
+    if not isinstance(spec, dict):
+        raise HTTPException(400, "补丁内容需为映射")
+    return {"spec": spec}
+
+
+@router.post("/dump")
+def dump_patch(body: dict):
+    """把完整 spec 序列化为 YAML（注释会丢失）。"""
+    spec = body.get("spec") if isinstance(body, dict) else None
+    if not isinstance(spec, dict):
+        raise HTTPException(400, "缺少 spec（需为映射）")
+    try:
+        return {"yaml": patch_engine.dump(spec)}
+    except Exception as exc:
+        raise HTTPException(400, f"补丁序列化失败：{exc}")
+
+
+@router.post("/resolve")
+def resolve_patch_step(body: dict):
+    """“记住选择”：第 step 步按选中 id 展开为按名称精确匹配的多步。"""
+    if not isinstance(body, dict):
+        raise HTTPException(400, "请求体需为 JSON 对象")
+    text = body.get("yaml") or ""
+    step = body.get("step")
+    ids = body.get("ids")
+    if not isinstance(step, int) or isinstance(step, bool):
+        raise HTTPException(400, "step 需为整数下标")
+    if not isinstance(ids, list):
+        raise HTTPException(400, "ids 需为 id 列表")
+    core = require_dat()
+    try:
+        return patch_engine.resolve_step_to_ids(core.get(), text, step, ids)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
 # ------------------------------------------------------------------ 补丁文件管理
 
 @router.get("/list")
@@ -216,7 +299,46 @@ def list_patches():
     PATCHES_DIR.mkdir(parents=True, exist_ok=True)
     items = []
     for p in sorted(PATCHES_DIR.glob("*.yaml")):
+        if p.stem == "manifest":
+            continue
         items.append({"name": p.stem, "content": p.read_text(encoding="utf-8")})
+    return {"items": items}
+
+
+@router.get("/status")
+def patch_status():
+    """每个补丁在当前 dat 上的 dry_run 状态；坏文件只影响自己那一项。"""
+    core = require_dat()
+    dat = core.get()
+    PATCHES_DIR.mkdir(parents=True, exist_ok=True)
+    items = []
+    for p in sorted(PATCHES_DIR.glob("*.yaml")):
+        if p.stem == "manifest":
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except OSError as exc:
+            items.append({"name": p.stem, "applied": 0, "conflicts": 0,
+                          "missing": 0, "errors": 1, "ok": False,
+                          "reason": f"读取失败：{exc}"})
+            continue
+        try:
+            report = patch_engine.apply(dat, text, dry_run=True)
+        except Exception as exc:  # apply 正常不抛异常，兜底
+            items.append({"name": p.stem, "applied": 0, "conflicts": 0,
+                          "missing": 0, "errors": 1, "ok": False,
+                          "reason": f"预览失败：{exc}"})
+            continue
+        s = report.get("summary", {})
+        items.append({
+            "name": p.stem,
+            "applied": s.get("applied", 0),
+            "conflicts": s.get("conflicts", 0),
+            "missing": s.get("missing", 0),
+            "errors": s.get("errors", 0),
+            "ok": (s.get("conflicts", 0) == 0 and s.get("missing", 0) == 0
+                   and s.get("errors", 0) == 0),
+        })
     return {"items": items}
 
 
