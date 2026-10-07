@@ -11,7 +11,13 @@ router = APIRouter(prefix="/effects", tags=["effects"])
 
 
 @router.get("")
-def list_effects(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=500)):
+def list_effects(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=500),
+    q: str | None = None,
+    min_cmds: int | None = Query(None, ge=0, description="命令数下限"),
+    max_cmds: int | None = Query(None, ge=0, description="命令数上限"),
+):
     core = require_dat()
     d = core.get()
     items = [
@@ -23,6 +29,13 @@ def list_effects(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le
         }
         for i, e in enumerate(d.effects)
     ]
+    if q:
+        ql = q.lower()
+        items = [x for x in items if ql in (x["name"] or "").lower() or ql in str(x["id"])]
+    if min_cmds is not None:
+        items = [x for x in items if x["commands"] >= min_cmds]
+    if max_cmds is not None:
+        items = [x for x in items if x["commands"] <= max_cmds]
     start = (page - 1) * page_size
     return {"total": len(items), "items": items[start : start + page_size]}
 

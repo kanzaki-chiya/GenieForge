@@ -6,13 +6,24 @@
         placeholder="搜索单位名…"
         size="small"
         clearable
-        style="width: 220px"
+        style="width: 180px"
         @keyup.enter="fetch"
         @clear="fetch"
       />
-      <el-select v-model="dim1" size="small" style="width: 120px" @change="fetch">
-        <el-option v-for="d in unitDims" :key="d.key" :value="d.key" :label="d.label" />
+      <el-select v-model="filterDim" size="small" style="width: 120px" placeholder="全部维度" @change="fetch">
+        <el-option value="" label="全部维度" />
+        <el-option v-for="d in filterDims" :key="d.key" :value="d.key" :label="d.label" />
       </el-select>
+      <el-input
+        v-if="filterDim"
+        v-model="filterValue"
+        placeholder="维度值"
+        size="small"
+        clearable
+        style="width: 100px"
+        @keyup.enter="fetch"
+        @clear="fetch"
+      />
       <el-select v-model="dim2" size="small" style="width: 120px" @change="fetch">
         <el-option v-for="d in unitDims" :key="d.key" :value="d.key" :label="d.label" />
       </el-select>
@@ -24,7 +35,7 @@
           class="civ-btn"
           :class="{ active: c.id === civ }"
           @click="switchCiv(c.id)"
-        >{{ c.name.slice(0, 2) }}</span>
+        >{{ (c.display_name || c.name).slice(0, 2) }}</span>
       </div>
       <span class="count">{{ civName }} · 单位 #{{ currentUnit }}</span>
       <el-button size="small" :disabled="!detail" @click="openCompare">对比</el-button>
@@ -35,6 +46,7 @@
     <div class="body">
       <div class="list">
         <el-table
+          ref="tableRef"
           :data="rows"
           size="small"
           highlight-current-row
@@ -152,30 +164,31 @@
       </div>
     </div>
 
-    <DiffDrawer
+    <EntityCompare
       v-if="detail"
       v-model="diffVisible"
       :table="'units'"
       :entity-id="detail.unit_id"
       :civ="civ"
-      :title="detail.name"
+      :title="detail.display_name || detail.name"
       :baseline="detail"
-      :scalar-fields="scalarFields"
-      :list-fields="listFields"
+      :groups="compareGroups"
+      :lists="compareLists"
+      :option-sets="optionSets"
+      @edit="onCompareEdit"
       @apply="onApplyDiff"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
-import DiffDrawer from '../components/DiffDrawer.vue'
-import { useCompare } from '../composables/useCompare'
+import EntityCompare, { type CmpField, type CmpList } from '../components/EntityCompare.vue'
 import { useCopyPaste } from '../composables/useCopyPaste'
 
-const compare = useCompare()
 const cp = useCopyPaste('units', () => civ.value)
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
@@ -205,8 +218,12 @@ const unitDims = [
   { key: 'icon_id', label: 'Icon', mark: 'I' },
   { key: 'language_dll_name', label: 'Lang File Name', mark: 'LN' }
 ]
-const dim1 = ref('')
 const dim2 = ref('')
+
+// 条件搜索（TODO P0-4：维度下拉真正过滤，dim2 保留为显示标记）
+const filterDims = unitDims.filter((d) => d.key)
+const filterDim = ref('')
+const filterValue = ref('')
 
 function dimMark(key: string, row: any): string {
   const d = unitDims.find((x) => x.key === key)
@@ -216,36 +233,108 @@ function dimMark(key: string, row: any): string {
 }
 
 function formatUnit(row: any) {
-  const m1 = dimMark(dim1.value, row)
   const m2 = dimMark(dim2.value, row)
-  return `${row.unit_id} -${m1}${m2}, ${row.name}`
+  return `${row.unit_id} -${m2}, ${row.display_name || row.name || ''}`
 }
 
 const diffVisible = ref(false)
-const scalarFields = [
-  { key: 'name', label: '名称' },
-  { key: 'type', label: '类型' },
-  { key: 'class', label: '类别' },
-  { key: 'hit_points', label: '生命' },
-  { key: 'speed', label: '速度' },
-  { key: 'line_of_sight', label: '视野' },
-  { key: 'base_armor', label: '基础护甲' },
-  { key: 'max_range', label: '最大射程' },
-  { key: 'min_range', label: '最小射程' },
-  { key: 'reload_time', label: '装填时间' },
-  { key: 'icon_id', label: '图标' },
-  { key: 'garrison_capacity', label: '驻军容量' },
-  { key: 'resource_costs', label: '费用' }
+
+// 对比表单 schema：与主表单同布局，渲染两遍（左可编辑 / 右只读）
+const compareGroups: { title: string; fields: CmpField[] }[] = [
+  {
+    title: '基础信息',
+    fields: [
+      { key: 'name', label: '内部名称', type: 'text' },
+      { key: 'type', label: '类型', type: 'enum', metaName: 'unit-types' },
+      { key: 'class', label: '类别', type: 'enum', metaName: 'armors' },
+      { key: 'id', label: 'ID', type: 'number' },
+      { key: 'copy_id', label: 'Copy ID', type: 'number' },
+      { key: 'base_id', label: 'Base ID', type: 'number' },
+      { key: 'trait', label: 'Trait', type: 'number' },
+      { key: 'civilization', label: '文明', type: 'enum', optionsKey: 'civs' }
+    ]
+  },
+  {
+    title: '统计',
+    fields: [
+      { key: 'hit_points', label: '生命', type: 'number' },
+      { key: 'speed', label: '速度', type: 'number' },
+      { key: 'line_of_sight', label: '视野', type: 'number' },
+      { key: 'garrison_capacity', label: '驻军容量', type: 'number' }
+    ]
+  },
+  {
+    title: '战斗',
+    fields: [
+      { key: 'base_armor', label: '基础护甲', type: 'number' },
+      { key: 'max_range', label: '最大射程', type: 'number' },
+      { key: 'min_range', label: '最小射程', type: 'number' },
+      { key: 'reload_time', label: '装填时间', type: 'number' }
+    ]
+  },
+  {
+    title: '属性',
+    fields: [
+      { key: 'enabled', label: 'Enabled', type: 'boolean' },
+      { key: 'disabled', label: 'Disabled', type: 'boolean' },
+      { key: 'hide_in_editor', label: 'Hide in Editor', type: 'boolean' },
+      { key: 'hero_mode', label: 'Hero Mode', type: 'boolean' },
+      { key: 'icon_id', label: '图标', type: 'number' }
+    ]
+  }
 ]
-const listFields = [
-  { key: 'attacks', label: '攻击' },
-  { key: 'armors', label: '护甲' },
-  { key: 'train_locations', label: '训练位置' },
-  { key: 'damage_graphics', label: '伤害图形' }
+const compareLists: CmpList[] = [
+  {
+    key: 'resource_costs',
+    label: '费用',
+    columns: [
+      { key: 'type', label: '资源', type: 'enum', metaName: 'resource-types', width: 140 },
+      { key: 'amount', label: '数量', width: 100 }
+    ]
+  },
+  {
+    key: 'attacks',
+    label: '攻击',
+    columns: [
+      { key: 'class_', label: '类别', type: 'enum', metaName: 'armors', width: 150 },
+      { key: 'amount', label: '数值', width: 100 }
+    ]
+  },
+  {
+    key: 'armors',
+    label: '护甲',
+    columns: [
+      { key: 'class_', label: '类别', type: 'enum', metaName: 'armors', width: 150 },
+      { key: 'amount', label: '数值', width: 100 }
+    ]
+  },
+  {
+    key: 'train_locations',
+    label: '训练位置',
+    columns: [
+      { key: 'unit_id', label: '单位', width: 90 },
+      { key: 'train_time', label: '训练时间', width: 100 },
+      { key: 'button_id', label: '按钮 ID', width: 90 }
+    ]
+  },
+  {
+    key: 'damage_graphics',
+    label: '伤害图形',
+    columns: [
+      { key: 'graphic_id', label: '图形', width: 90 },
+      { key: 'damage_percent', label: '伤害 %', width: 90 },
+      { key: 'apply_mode', label: '模式', width: 80 }
+    ]
+  }
 ]
+const optionSets = computed(() => ({ civs: civItems.value }))
 
 function openCompare() {
   diffVisible.value = true
+}
+
+function onCompareEdit(p: { field: string; value: unknown }) {
+  save(p.field, p.value)
 }
 
 function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
@@ -285,18 +374,26 @@ const damageCols = [
 async function loadCivs() {
   const r: any = await api.civs()
   civs.value = r.items
-  civItems.value = r.items.map((x: any) => ({ value: x.id, label: x.name }))
+  civItems.value = r.items.map((x: any) => ({ value: x.id, label: x.display_name || x.name }))
 }
 
 async function switchCiv(id: number) {
   civ.value = id
-  civName.value = civs.value.find((c) => c.id === id)?.name || ''
+  const c = civs.value.find((x) => x.id === id)
+  civName.value = c?.display_name || c?.name || ''
   detail.value = null
   await fetch()
 }
 
 async function fetch() {
-  const r: any = await api.units(civ.value, q.value || undefined, page.value, pageSize)
+  const r: any = await api.units(
+    civ.value,
+    q.value || undefined,
+    page.value,
+    pageSize,
+    filterDim.value || undefined,
+    filterDim.value ? filterValue.value : undefined
+  )
   rows.value = r.items
   total.value = r.total
 }
@@ -305,6 +402,23 @@ async function onSelect(row: any) {
   if (!row) return
   currentUnit.value = row.unit_id
   detail.value = await api.unitDetail(civ.value, row.unit_id)
+}
+
+// 全局搜索 #ID 跳转：翻到对应页并选中
+const tableRef = ref()
+const route = useRoute()
+
+async function selectById(id: number) {
+  const targetPage = Math.floor(id / pageSize) + 1
+  if (page.value !== targetPage) {
+    page.value = targetPage
+    await fetch()
+  }
+  const row = rows.value.find((r) => r.unit_id === id)
+  if (!row) return
+  tableRef.value?.setCurrentRow?.(row)
+  currentUnit.value = id
+  detail.value = await api.unitDetail(civ.value, id)
 }
 
 function setDetail(dotted: string, value: unknown) {
@@ -383,7 +497,9 @@ async function saveTable(path: string, key: string, rows: unknown[]) {
 
 onMounted(async () => {
   await loadCivs()
-  if (civs.value.length) await switchCiv(0)
+  await switchCiv(0)
+  const id = Number(route.query.id)
+  if (!Number.isNaN(id) && id >= 0) await selectById(id)
 })
 </script>
 

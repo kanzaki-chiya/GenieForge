@@ -26,9 +26,18 @@ def get_diff_job(job_id: str):
 
 @router.post("/target/load")
 def load_target(body: dict):
+    """加载对比目标：传 ``path`` 直接选文件，或传 ``version_id`` 用已记录的版本快照。"""
     path = body.get("path")
+    version_id = body.get("version_id")
+    if version_id is not None:
+        from ..core.version import version_store
+
+        rec = version_store.get(version_id) if isinstance(version_id, int) else None
+        if rec is None:
+            raise HTTPException(404, "版本不存在")
+        path = rec.path
     if not path:
-        raise HTTPException(400, "缺少 path")
+        raise HTTPException(400, "缺少 path 或 version_id")
     try:
         return diff_loader.load(path)
     except FileNotFoundError as e:

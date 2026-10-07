@@ -7,11 +7,23 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
+from ..core.names import name_resolver
 from ..core.subtable import rows_to_dicts
 from ..core.unit_index import summarize_unit, unit_index
 from ..deps import dat_core, require_dat
 
 router = APIRouter(prefix="/units", tags=["units"])
+
+# 条件搜索允许的维度（AGE 式下拉，等值匹配；class 的对象属性名是 class_）
+_FILTER_FIELDS = {
+    "type": "type",
+    "class": "class_",
+    "hit_points": "hit_points",
+    "line_of_sight": "line_of_sight",
+    "garrison_capacity": "garrison_capacity",
+    "speed": "speed",
+    "icon_id": "icon_id",
+}
 
 
 @router.get("")
@@ -21,11 +33,24 @@ def list_units(
     only_present: bool = Query(True, description="仅返回非空单位槽位"),
     page: int = Query(1, ge=1),
     page_size: int = Query(500, ge=1, le=5000),
+    field: str | None = Query(None, description="条件搜索维度"),
+    value: str | None = Query(None, description="条件搜索值（与 field 配套，等值匹配）"),
 ):
     core = require_dat()
     d = core.get()
     if not (0 <= civ < len(d.civs)):
         raise HTTPException(404, "文明不存在")
+    want = None
+    if field and value is not None:
+        if field not in _FILTER_FIELDS:
+            raise HTTPException(400, f"不支持的搜索维度: {field}")
+        try:
+            want = int(value)
+        except ValueError:
+            try:
+                want = float(value)
+            except ValueError:
+                raise HTTPException(400, "维度值必须是数字") from None
     c = d.civs[civ]
     items = []
     for uid, u in enumerate(c.units):
@@ -40,10 +65,14 @@ def list_units(
             marker = f"c {getattr(u, 'class_', '')} t {getattr(u, 'type', '')}"
             if ql not in name.lower() and ql not in str(uid) and ql not in marker:
                 continue
+        if want is not None and getattr(u, _FILTER_FIELDS[field or ""], None) != want:
+            continue
         items.append(
             {
                 "unit_id": uid,
                 "name": name,
+                # 本地化显示名：单位在 dat 里 name 常为空串，需经 language_dll_name 查语言表
+                "display_name": name_resolver.resolve(u, uid)["display"],
                 "type": getattr(u, "type", None),
                 "class": getattr(u, "class_", None),
                 "hit_points": getattr(u, "hit_points", None),
@@ -84,6 +113,7 @@ def _detail(u, civ: int, unit_id: int) -> dict:
         "civ_name": None,
         "unit_id": unit_id,
         "present": True,
+        "display_name": name_resolver.resolve(u, unit_id)["display"],
         # 基础
         "name": u.name,
         "type": u.type,

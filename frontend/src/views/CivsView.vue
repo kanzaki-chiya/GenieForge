@@ -6,7 +6,23 @@
         placeholder="搜索文明名…"
         size="small"
         clearable
-        style="width: 240px"
+        style="width: 200px"
+        @input="filterRows"
+      />
+      <el-select v-model="dim" size="small" style="width: 120px" placeholder="全部维度" @change="filterRows">
+        <el-option value="" label="全部维度" />
+        <el-option value="player_type" label="玩家类型" />
+        <el-option value="icon_set" label="图标集" />
+        <el-option value="tech_tree_id" label="科技树" />
+        <el-option value="team_bonus_id" label="团队加成" />
+      </el-select>
+      <el-input
+        v-if="dim"
+        v-model="dimValue"
+        placeholder="维度值"
+        size="small"
+        clearable
+        style="width: 100px"
         @input="filterRows"
       />
       <span class="count">当前 #{{ currentId }} · 资源 {{ detail?.resources?.length || 0 }} 项</span>
@@ -18,6 +34,7 @@
     <div class="body">
       <div class="list">
         <el-table
+          ref="tableRef"
           :data="rows"
           size="small"
           highlight-current-row
@@ -25,7 +42,7 @@
           @current-change="onSelect"
         >
           <el-table-column prop="id" label="ID" width="56" />
-          <el-table-column prop="name" label="名称" />
+          <el-table-column label="名称" :formatter="(r: any) => r.display_name || r.name" />
         </el-table>
       </div>
 
@@ -67,15 +84,17 @@
       </div>
     </div>
 
-    <DiffDrawer
+    <EntityCompare
       v-if="detail"
       v-model="diffVisible"
       :table="'civs'"
       :entity-id="detail.id"
       :title="detail.name"
       :baseline="detail"
-      :scalar-fields="scalarFields"
-      :list-fields="listFields"
+      :groups="compareGroups"
+      :lists="compareLists"
+      :option-sets="optionSets"
+      @edit="onCompareEdit"
       @apply="onApplyDiff"
     />
   </div>
@@ -83,16 +102,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import Field from '../components/Field.vue'
-import DiffDrawer from '../components/DiffDrawer.vue'
-import { useCompare } from '../composables/useCompare'
+import EntityCompare, { type CmpField, type CmpList } from '../components/EntityCompare.vue'
 import { useCopyPaste } from '../composables/useCopyPaste'
 
-const compare = useCompare()
 const cp = useCopyPaste('civs')
 const rows = ref<any[]>([])
 const allRows = ref<any[]>([])
@@ -102,19 +120,45 @@ const q = ref('')
 const effectItems = ref<{ value: number; label: string }[]>([])
 const diffVisible = ref(false)
 
-const scalarFields = [
-  { key: 'name', label: '名称' },
-  { key: 'player_type', label: '玩家类型' },
-  { key: 'icon_set', label: '图标集' },
-  { key: 'tech_tree_id', label: '科技树' },
-  { key: 'team_bonus_id', label: '团队加成' }
+// 条件搜索（TODO P0-4；文明仅 46 条，客户端过滤）
+const dim = ref('')
+const dimValue = ref('')
+
+const compareGroups: { title: string; fields: CmpField[] }[] = [
+  {
+    title: '基础信息',
+    fields: [
+      { key: 'name', label: '内部名称', type: 'text' },
+      { key: 'player_type', label: '玩家类型', type: 'number' },
+      { key: 'icon_set', label: '图标集', type: 'number' },
+      { key: 'tech_tree_id', label: '科技树', type: 'enum', optionsKey: 'effects' },
+      { key: 'team_bonus_id', label: '团队加成', type: 'enum', optionsKey: 'effects' }
+    ]
+  }
 ]
-const listFields: { key: string; label: string }[] = []
+const compareLists: CmpList[] = [
+  {
+    key: 'resources',
+    label: '文明资源',
+    dottedRow: true,
+    valueKey: 'value',
+    columns: [
+      { key: 'index', label: '#', width: 64 },
+      { key: 'name', label: '资源', width: 260 },
+      { key: 'value', label: '值', width: 120 }
+    ]
+  }
+]
+const optionSets = computed(() => ({ effects: effectItems.value }))
 
 const filteredResources = computed(() => detail.value?.resources || [])
 
 function openCompare() {
   diffVisible.value = true
+}
+
+function onCompareEdit(p: { field: string; value: unknown }) {
+  save(p.field, p.value)
 }
 
 function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
@@ -128,14 +172,32 @@ async function fetch() {
 }
 
 function filterRows() {
+  let list = allRows.value
   const k = q.value.toLowerCase()
-  rows.value = k ? allRows.value.filter((c) => c.name.toLowerCase().includes(k)) : allRows.value
+  if (k) list = list.filter((c) => c.name.toLowerCase().includes(k) || (c.display_name || '').toLowerCase().includes(k))
+  if (dim.value && dimValue.value !== '') {
+    const want = Number(dimValue.value)
+    if (!Number.isNaN(want)) list = list.filter((c) => Number(c[dim.value]) === want)
+  }
+  rows.value = list
 }
 
 async function onSelect(row: any) {
   if (!row) return
   currentId.value = row.id
   detail.value = await api.civDetail(row.id)
+}
+
+// 全局搜索 #ID 跳转：直接选中
+const tableRef = ref()
+const route = useRoute()
+
+async function selectById(id: number) {
+  const row = allRows.value.find((r) => r.id === id)
+  if (!row) return
+  tableRef.value?.setCurrentRow?.(row)
+  currentId.value = id
+  detail.value = await api.civDetail(id)
 }
 
 function setDetail(dotted: string, value: unknown) {
@@ -160,6 +222,8 @@ onMounted(async () => {
   await fetch()
   const en: any = await api.effectNames()
   effectItems.value = en.items.map((x: any) => ({ value: x.id, label: x.name }))
+  const id = Number(route.query.id)
+  if (!Number.isNaN(id) && id >= 0) await selectById(id)
 })
 </script>
 

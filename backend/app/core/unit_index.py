@@ -10,6 +10,7 @@ from typing import Optional
 
 from ... import metadata
 from .dat_core import dat_core
+from .names import name_resolver
 
 
 def summarize_unit(u, unit_id: int) -> dict:
@@ -19,6 +20,8 @@ def summarize_unit(u, unit_id: int) -> dict:
     return {
         "unit_id": unit_id,
         "name": getattr(u, "name", None),
+        # 本地化显示名（经 language_dll_name 查语言表）
+        "display_name": name_resolver.resolve(u, unit_id)["display"],
         "type": getattr(u, "type", None),
         "class": getattr(u, "class_", None),
         "hit_points": getattr(u, "hit_points", None),
@@ -61,6 +64,10 @@ class UnitIndex:
 
     def get(self, unit_id: int):
         return self._units.get(unit_id)
+
+    def items(self):
+        """按 unit_id 升序遍历（供全局搜索等）。"""
+        return sorted(self._units.items())
 
     def all_ids(self) -> list[int]:
         return sorted(self._units.keys())

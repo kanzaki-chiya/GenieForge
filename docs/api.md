@@ -31,18 +31,18 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/techs` | 科技列表（`?page=&page_size=&q=`，`q` 为名称包含匹配） |
+| GET | `/api/techs` | 科技列表（`?page=&page_size=&q=`，`q` 为名称包含匹配；条件搜索 `?field=&value=`，`field` ∈ `type` / `civ` / `effect_id` / `repeatable` / `full_tech_mode` / `icon_id`，等值匹配） |
 | GET | `/api/techs/names` | 全部科技 ID + 名称 |
 | GET | `/api/techs/{id}` | 科技详情（前置科技、费用、研究位置等） |
 | PATCH | `/api/techs/{id}` | 修改字段：body `{field, value}`，或 `{字段: 值, …}` 一次改多个 |
-| GET | `/api/effects` | 效果列表（`?page=&page_size=`，不支持名称过滤，按名称找请用 `/api/search`） |
+| GET | `/api/effects` | 效果列表（`?page=&page_size=&q=` 名称 / ID 匹配；`?min_cmds=&max_cmds=` 按命令数区间过滤） |
 | GET | `/api/effects/names` | 全部效果 ID + 名称 |
 | GET | `/api/effects/{id}` | 效果详情（含效果指令） |
 | PATCH | `/api/effects/{id}` | 修改字段：body `{field, value}` |
 | GET | `/api/civs` | 文明列表 |
 | GET | `/api/civs/{id}` | 文明详情（资源、科技树 / 团队加成引用） |
 | PATCH | `/api/civs/{id}` | 修改字段：body `{field, value}` |
-| GET | `/api/units?civ=` | 某文明的单位列表（`civ` 必填；可选 `q`、`only_present`、`page`、`page_size`） |
+| GET | `/api/units?civ=` | 某文明的单位列表（`civ` 必填；可选 `q`、`only_present`、`page`、`page_size`；条件搜索 `?field=&value=`，`field` ∈ `type` / `class` / `hit_points` / `line_of_sight` / `garrison_capacity` / `speed` / `icon_id`。`name` 为 dat 内部名，`display_name` 为语言表解析出的本地化名） |
 | GET | `/api/units/{unit_id}` | 主单位完整属性（攻击 / 护甲 / 费用） |
 | GET | `/api/units/{civ}/{unit_id}` | 某文明下该单位的数据 |
 | PATCH | `/api/units/{civ}/{unit_id}` | 修改某文明下该单位的字段：body `{field, value}` |
@@ -54,7 +54,7 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/search?q=` | 跨科技 / 效果 / 文明按名称搜索（最多 100 条） |
+| GET | `/api/search?q=` | 跨科技 / 单位 / 效果 / 文明按名称搜索（含语言表本地化名，最多 100 条） |
 | GET | `/api/names/{id}?table=` | 名称解析；省略 `table` 时在科技 / 效果 / 文明中查找 |
 | GET | `/api/refs/forward/{table}/{id}` | 该条目引用了谁 |
 | GET | `/api/refs/reverse/{table}/{id}` | 谁引用了该条目 |
@@ -75,7 +75,7 @@
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/diff` | 对比两个 dat（body `{base, target}`），返回各表增删数量、逐条变更与 ID 漂移 |
-| POST | `/api/diff/target/load` | 加载一个对比用的目标 dat（body `{path}`），不影响当前编辑的 dat |
+| POST | `/api/diff/target/load` | 加载一个对比用的目标 dat（body `{path}` 或 `{version_id}`，二选一），不影响当前编辑的 dat |
 | GET | `/api/diff/target/entity/{table}/{id}?civ=` | 读取目标 dat 中某条目的详情（结构与当前 dat 详情相同） |
 
 ### 补丁

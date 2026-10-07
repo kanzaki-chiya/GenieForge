@@ -6,10 +6,13 @@
         placeholder="搜索效果名…"
         size="small"
         clearable
-        style="width: 260px"
+        style="width: 200px"
         @keyup.enter="fetch"
         @clear="fetch"
       />
+      <span class="lbl">命令数</span>
+      <el-input v-model="minCmds" placeholder="≥" size="small" clearable style="width: 70px" @keyup.enter="fetch" @clear="fetch" />
+      <el-input v-model="maxCmds" placeholder="≤" size="small" clearable style="width: 70px" @keyup.enter="fetch" @clear="fetch" />
       <el-button size="small" @click="fetch">搜索</el-button>
       <span class="count">共 {{ total }} 条 · 当前 #{{ currentId }}</span>
       <el-button size="small" :disabled="!detail" @click="openCompare">对比</el-button>
@@ -63,31 +66,31 @@
       </div>
     </div>
 
-    <DiffDrawer
+    <EntityCompare
       v-if="detail"
       v-model="diffVisible"
       :table="'effects'"
       :entity-id="detail.id"
       :title="detail.name"
       :baseline="detail"
-      :scalar-fields="scalarFields"
-      :list-fields="listFields"
+      :groups="compareGroups"
+      :lists="compareLists"
+      :option-sets="optionSets"
+      @edit="onCompareEdit"
       @apply="onApplyDiff"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
-import DiffDrawer from '../components/DiffDrawer.vue'
-import { useCompare } from '../composables/useCompare'
+import EntityCompare, { type CmpField, type CmpList } from '../components/EntityCompare.vue'
 import { useCopyPaste } from '../composables/useCopyPaste'
 
-const compare = useCompare()
 const cp = useCopyPaste('effects')
 import Field from '../components/Field.vue'
 import { useRoute } from 'vue-router'
@@ -103,12 +106,36 @@ const currentId = ref(-1)
 const unitItems = ref<{ value: number; label: string }[]>([])
 const techItems = ref<{ value: number; label: string }[]>([])
 const diffVisible = ref(false)
+const minCmds = ref('')
+const maxCmds = ref('')
 
-const scalarFields = [{ key: 'name', label: '名称' }]
-const listFields = [{ key: 'effect_commands', label: '效果命令' }]
+const compareGroups: { title: string; fields: CmpField[] }[] = [
+  {
+    title: '基础信息',
+    fields: [{ key: 'name', label: '名称', type: 'text' }]
+  }
+]
+const compareLists: CmpList[] = [
+  {
+    key: 'effect_commands',
+    label: '效果命令',
+    columns: [
+      { key: 'type', label: '类型', type: 'enum', metaName: 'effect-types', width: 180 },
+      { key: 'a', label: 'a', width: 90 },
+      { key: 'b', label: 'b', width: 90 },
+      { key: 'c', label: 'c', width: 90 },
+      { key: 'd', label: 'd', width: 90 }
+    ]
+  }
+]
+const optionSets = computed(() => ({ techs: techItems.value, units: unitItems.value }))
 
 function openCompare() {
   diffVisible.value = true
+}
+
+function onCompareEdit(p: { field: string; value: unknown }) {
+  save(p.field, p.value)
 }
 
 function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
@@ -163,7 +190,13 @@ function paramsFor(type: number) {
 }
 
 async function fetch() {
-  const r: any = await api.effects({ page: page.value, page_size: pageSize, q: q.value })
+  const r: any = await api.effects({
+    page: page.value,
+    page_size: pageSize,
+    q: q.value || undefined,
+    min_cmds: minCmds.value === '' ? undefined : Number(minCmds.value),
+    max_cmds: maxCmds.value === '' ? undefined : Number(maxCmds.value)
+  } as Record<string, string | number>)
   rows.value = r.items
   total.value = r.total
 }
@@ -171,7 +204,7 @@ async function fetch() {
 async function loadRefs() {
   const [tn, un]: any[] = await Promise.all([api.techNames(), api.units(0, undefined)])
   techItems.value = tn.items.map((x: any) => ({ value: x.id, label: x.name }))
-  unitItems.value = (un.items || []).map((x: any) => ({ value: x.unit_id, label: x.name }))
+  unitItems.value = (un.items || []).map((x: any) => ({ value: x.unit_id, label: x.display_name || x.name }))
 }
 
 async function onSelect(row: any) {
@@ -243,6 +276,7 @@ onMounted(async () => {
 <style scoped>
 .editor { height: 100%; display: flex; flex-direction: column; }
 .toolbar { padding: 8px 12px; border-bottom: 1px solid #34373a; display: flex; align-items: center; gap: 8px; }
+.lbl { color: #9a9a9a; font-size: 12px; }
 .count { color: #9a9a9a; font-size: 12px; }
 .body { flex: 1; display: flex; min-height: 0; }
 .list { width: 320px; border-right: 1px solid #34373a; display: flex; flex-direction: column; }

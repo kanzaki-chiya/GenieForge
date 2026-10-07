@@ -8,6 +8,9 @@ from ..deps import require_dat
 
 router = APIRouter(prefix="/techs", tags=["techs"])
 
+# 条件搜索允许的维度（AGE 式下拉，等值匹配）
+_FILTER_FIELDS = {"type", "civ", "effect_id", "repeatable", "full_tech_mode", "icon_id"}
+
 
 def _summarize(d, i: int, t) -> dict:
     return {
@@ -25,13 +28,24 @@ def list_techs(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     q: str | None = None,
+    field: str | None = Query(None, description="条件搜索维度"),
+    value: str | None = Query(None, description="条件搜索值（与 field 配套，等值匹配）"),
 ):
     core = require_dat()
     d = core.get()
+    if field and value is not None:
+        if field not in _FILTER_FIELDS:
+            raise HTTPException(400, f"不支持的搜索维度: {field}")
+        try:
+            want = int(value)
+        except ValueError:
+            raise HTTPException(400, "维度值必须是整数") from None
     items = []
     for i, t in enumerate(d.techs):
         name = getattr(t, "name", None) or ""
         if q and q.lower() not in name.lower():
+            continue
+        if field and value is not None and getattr(t, field, None) != want:
             continue
         items.append(_summarize(d, i, t))
     start = (page - 1) * page_size

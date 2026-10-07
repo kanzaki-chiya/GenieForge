@@ -6,7 +6,21 @@
         placeholder="搜索科技名…"
         size="small"
         clearable
-        style="width: 280px"
+        style="width: 200px"
+        @keyup.enter="fetch"
+        @clear="fetch"
+      />
+      <el-select v-model="dim" size="small" style="width: 130px" placeholder="全部维度" @change="fetch">
+        <el-option value="" label="全部维度" />
+        <el-option v-for="d in dims" :key="d.key" :value="d.key" :label="d.label" />
+      </el-select>
+      <el-input
+        v-if="dim"
+        v-model="dimValue"
+        placeholder="维度值"
+        size="small"
+        clearable
+        style="width: 110px"
         @keyup.enter="fetch"
         @clear="fetch"
       />
@@ -20,6 +34,7 @@
     <div class="body">
       <div class="list">
         <el-table
+          ref="tableRef"
           :data="rows"
           size="small"
           highlight-current-row
@@ -111,34 +126,34 @@
       </div>
     </div>
 
-    <DiffDrawer
+    <EntityCompare
       v-if="detail"
       v-model="diffVisible"
       :table="'techs'"
       :entity-id="detail.id"
       :title="detail.name"
       :baseline="detail"
-      :scalar-fields="scalarFields"
-      :list-fields="listFields"
+      :groups="compareGroups"
+      :lists="compareLists"
+      :option-sets="optionSets"
+      @edit="onCompareEdit"
       @apply="onApplyDiff"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { api } from '../api/client'
 import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import SubTable from '../components/SubTable.vue'
 import Field from '../components/Field.vue'
-import DiffDrawer from '../components/DiffDrawer.vue'
-import { useCompare } from '../composables/useCompare'
+import EntityCompare, { type CmpField, type CmpList } from '../components/EntityCompare.vue'
 import { useCopyPaste } from '../composables/useCopyPaste'
 
-const compare = useCompare()
 const cp = useCopyPaste('techs')
 
 const rows = ref<any[]>([])
@@ -148,6 +163,16 @@ const pageSize = 50
 const q = ref('')
 const detail = ref<any>(null)
 const currentId = ref(-1)
+
+// 条件搜索（TODO P0-4：AGE 式维度下拉）
+const dims = [
+  { key: 'type', label: '类型' },
+  { key: 'civ', label: '文明' },
+  { key: 'effect_id', label: '效果' },
+  { key: 'icon_id', label: '图标' }
+]
+const dim = ref('')
+const dimValue = ref('')
 
 const router = useRouter()
 
@@ -161,26 +186,62 @@ function openCompare() {
 }
 const diffVisible = ref(false)
 
-const scalarFields = [
-  { key: 'name', label: '名称' },
-  { key: 'type', label: '类型' },
-  { key: 'civ', label: '文明' },
-  { key: 'repeatable', label: '可重复' },
-  { key: 'full_tech_mode', label: 'Full Tech Mode' },
-  { key: 'icon_id', label: '图标' },
-  { key: 'effect_id', label: '效果' },
-  { key: 'language_dll_name', label: '语言名' },
-  { key: 'language_dll_description', label: '描述' },
-  { key: 'language_dll_help', label: '帮助' },
-  { key: 'language_dll_tech_tree', label: '科技树' },
-  { key: 'required_techs', label: '前置科技' },
-  { key: 'resource_costs', label: '费用' }
+// 对比表单 schema：与主表单同布局，渲染两遍（左可编辑 / 右只读）
+const compareGroups: { title: string; fields: CmpField[] }[] = [
+  {
+    title: '基础信息',
+    fields: [
+      { key: 'name', label: '内部名称', type: 'text' },
+      { key: 'type', label: '类型', type: 'enum', metaName: 'tech-types' },
+      { key: 'civ', label: '文明', type: 'enum', optionsKey: 'civs' },
+      { key: 'repeatable', label: '可重复', type: 'boolean' },
+      { key: 'full_tech_mode', label: 'Full Tech Mode', type: 'number' },
+      { key: 'icon_id', label: '图标', type: 'number' },
+      { key: 'effect_id', label: '效果', type: 'enum', optionsKey: 'effects' }
+    ]
+  },
+  {
+    title: '语言',
+    fields: [
+      { key: 'language_dll_name', label: '语言名', type: 'number' },
+      { key: 'language_dll_description', label: '描述', type: 'number' },
+      { key: 'language_dll_help', label: '帮助', type: 'number' },
+      { key: 'language_dll_tech_tree', label: '科技树', type: 'number' }
+    ]
+  }
 ]
-const listFields = [{ key: 'research_locations', label: '研究位置' }]
+const compareLists: CmpList[] = [
+  {
+    key: 'required_techs',
+    label: '前置科技',
+    dottedRow: true,
+    columns: [{ key: '', label: '科技', type: 'enum', optionsKey: 'techs', width: 220 }]
+  },
+  {
+    key: 'resource_costs',
+    label: '费用',
+    columns: [
+      { key: 'type', label: '资源', type: 'enum', metaName: 'resource-types', width: 140 },
+      { key: 'amount', label: '数量', width: 100 },
+      { key: 'flag', label: '扣除', width: 80 }
+    ]
+  },
+  {
+    key: 'research_locations',
+    label: '研究位置',
+    columns: [
+      { key: 'location_id', label: '位置', width: 90 },
+      { key: 'research_time', label: '研究时间', width: 100 },
+      { key: 'button_id', label: '按钮 ID', width: 90 },
+      { key: 'hot_key_id', label: '快捷键', width: 90 }
+    ]
+  }
+]
 
 const techItems = ref<{ value: number; label: string }[]>([])
 const effectItems = ref<{ value: number; label: string }[]>([])
 const civItems = ref<{ value: number; label: string }[]>([])
+const optionSets = computed(() => ({ techs: techItems.value, effects: effectItems.value, civs: civItems.value }))
 
 const researchColumns = [
   { key: 'location_id', label: '位置', type: 'number', width: 90 },
@@ -191,7 +252,13 @@ const researchColumns = [
 const researchTemplate = () => ({ location_id: 0, research_time: 0, button_id: 0, hot_key_id: 0 })
 
 async function fetch() {
-  const r: any = await api.techs({ page: page.value, page_size: pageSize, q: q.value })
+  const params: Record<string, string | number> = { page: page.value, page_size: pageSize }
+  if (q.value) params.q = q.value
+  if (dim.value && dimValue.value !== '') {
+    params.field = dim.value
+    params.value = dimValue.value
+  }
+  const r: any = await api.techs(params)
   rows.value = r.items
   total.value = r.total
 }
@@ -207,6 +274,23 @@ async function onSelect(row: any) {
   if (!row) return
   currentId.value = row.id
   detail.value = await api.techDetail(row.id)
+}
+
+// 全局搜索 #ID 跳转：翻到对应页并选中
+const tableRef = ref()
+const route = useRoute()
+
+async function selectById(id: number) {
+  const targetPage = Math.floor(id / pageSize) + 1
+  if (page.value !== targetPage) {
+    page.value = targetPage
+    await fetch()
+  }
+  const row = rows.value.find((r) => r.id === id)
+  if (!row) return
+  tableRef.value?.setCurrentRow?.(row)
+  currentId.value = id
+  detail.value = await api.techDetail(id)
 }
 
 function setDetail(dotted: string, value: unknown) {
@@ -260,6 +344,10 @@ async function saveTable(field: string, rows: unknown[]) {
   }
 }
 
+function onCompareEdit(p: { field: string; value: unknown }) {
+  save(p.field, p.value)
+}
+
 function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
   if (p.list) {
     saveTable(p.field, p.value as unknown[])
@@ -268,9 +356,11 @@ function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
   }
 }
 
-onMounted(() => {
-  fetch()
-  loadRefs()
+onMounted(async () => {
+  await fetch()
+  await loadRefs()
+  const id = Number(route.query.id)
+  if (!Number.isNaN(id) && id >= 0) await selectById(id)
 })
 </script>
 

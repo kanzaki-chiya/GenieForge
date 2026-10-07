@@ -23,16 +23,19 @@ GenieForge fully parses the dat file and offers three core capabilities:
 ## Features
 
 ### Data editing
+- A persistent top bar shows the dat status (file name, version, unsaved changes) with save / undo / redo always at hand (`Ctrl+S` / `Ctrl+Z`).
+- `Ctrl+K` global search: look up techs / units / effects / civs by name, or type `#ID` to jump straight to an entry.
 - Tech / Unit / Civ / Effect pages with AGE-style field groups; edits apply immediately, with undo / redo.
 - Enum fields (types, resources, armor classes, effect commands, …) use dropdowns; sub-tables (costs, attacks, armors, effect commands, …) support adding and removing rows.
-- The Unit page lets you switch civilizations and filter by dimensions such as Class, Type and HP.
+- Conditional search on every data page: pick a dimension (techs: type / civ / effect; units: Class, Type, HP, …; effects: command-count range; civs: player type, …) and filter by value.
+- The Unit page lets you switch civilizations; names are resolved to localized names through the game's language file.
 - Whole-entry copy / paste (`Ctrl+C` / `Ctrl+V`) copies every field of one entry onto another.
 - The effect field on the Tech page jumps to the referenced effect.
 - With the game's language file configured, entries show their in-game names.
 
 ### Diff
-- **Diff page** — pick a base and a target dat to see added / removed / modified counts, per-entry changes and ID drift, and export the result as a patch.
-- **In-page compare** — click **Compare** on any data page to compare the current entry field by field with the same entry in another dat; apply individual differences or all of them.
+- **Diff page** — pick a base and a target dat to see added / removed / modified counts, per-entry changes (readably formatted, not raw JSON) and ID drift, and export the result as a patch.
+- **Side-by-side in-page compare** — click **Compare** on any data page to render the same form twice (left: current dat, editable; right: comparison version, read-only), with differing fields highlighted; apply differences one by one or all at once. The comparison target can be a saved version or a dat file.
 
 ### Patches
 - Visual patch editor: create a patch, fill in each step's target and operation, preview what it hits, then apply. Patches are saved as YAML files in `patches/`.

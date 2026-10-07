@@ -102,6 +102,11 @@ def _name_map(d, table: str) -> dict:
     return m
 
 
+def _plain_row(obj, table: str) -> dict:
+    """单条记录的可读详情（供前端展开显示新增/删除的完整字段）。"""
+    return {f: _plain(getattr(obj, f)) for f in _COMPARE_FIELDS[table] if hasattr(obj, f)}
+
+
 def diff(base_path, target_path) -> dict:
     """对比两个 dat 文件，返回结构化 DiffReport。"""
     from genieutils.datfile import DatFile
@@ -127,9 +132,13 @@ def diff(base_path, target_path) -> dict:
         objs_b = getattr(b, table, [])
 
         for n in sorted(nb.keys() - na.keys()):
-            report["records"].append({"table": table, "name": n, "change": "added"})
+            report["records"].append(
+                {"table": table, "name": n, "change": "added", "record": _plain_row(objs_b[nb[n][0]], table)}
+            )
         for n in sorted(na.keys() - nb.keys()):
-            report["records"].append({"table": table, "name": n, "change": "removed"})
+            report["records"].append(
+                {"table": table, "name": n, "change": "removed", "record": _plain_row(objs_a[na[n][0]], table)}
+            )
 
         for n in sorted(na.keys() & nb.keys()):
             ia, ib = na[n][0], nb[n][0]

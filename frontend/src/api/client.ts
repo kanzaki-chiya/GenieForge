@@ -55,8 +55,18 @@ export const api = {
   civDetail: (id: number) => request(`/api/civs/${id}`),
   patchCiv: (id: number, body: Record<string, unknown>) =>
     request(`/api/civs/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  units: (civ: number, q?: string, page?: number, pageSize?: number) =>
-    request('/api/units' + qs({ civ, q, page, page_size: pageSize })),
+  units: (
+    civ: number,
+    q?: string,
+    page?: number,
+    pageSize?: number,
+    field?: string,
+    value?: string
+  ) =>
+    request(
+      '/api/units' +
+        qs({ civ, q, page, page_size: pageSize, field, value: field ? value : undefined })
+    ),
   unitDetail: (civ: number, unitId: number) => request(`/api/units/${civ}/${unitId}`),
   patchUnit: (civ: number, unitId: number, body: Record<string, unknown>) =>
     request(`/api/units/${civ}/${unitId}`, { method: 'PATCH', body: JSON.stringify(body) }),
@@ -73,6 +83,8 @@ export const api = {
   // diff 目标对比
   diffLoadTarget: (path: string) =>
     request('/api/diff/target/load', { method: 'POST', body: JSON.stringify({ path }) }),
+  diffLoadVersion: (versionId: number) =>
+    request('/api/diff/target/load', { method: 'POST', body: JSON.stringify({ version_id: versionId }) }),
   diffEntity: (table: string, id: number, civ?: number) =>
     request(`/api/diff/target/entity/${table}/${id}` + (civ != null ? qs({ civ }) : '')),
 
