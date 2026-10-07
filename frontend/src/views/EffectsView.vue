@@ -66,6 +66,7 @@
             <el-button size="small" @click="openCompare">对比…</el-button>
             <el-button size="small" @click="cp.copy(currentId)">复制</el-button>
             <el-button size="small" @click="cp.paste(currentId)">粘贴</el-button>
+            <el-button size="small" @click="patchDialogVisible = true">改动转为补丁</el-button>
           </div>
         </div>
 
@@ -124,6 +125,9 @@
       :list-fields="listFields"
       @apply="onApplyDiff"
     />
+
+    <!-- 改动转为补丁对话框 -->
+    <PatchFromChangesDialog v-model="patchDialogVisible" />
   </div>
 </template>
 
@@ -137,6 +141,7 @@ import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import DiffDrawer from '../components/DiffDrawer.vue'
 import RelationPanel from '../components/RelationPanel.vue'
+import PatchFromChangesDialog from '../components/PatchFromChangesDialog.vue'
 import Field from '../components/Field.vue'
 import { useCopyPaste } from '../composables/useCopyPaste'
 
@@ -144,6 +149,7 @@ const cp = useCopyPaste('effects')
 const appStore = useAppStore()
 const historyStore = useHistoryStore()
 const route = useRoute()
+const patchDialogVisible = ref(false)
 
 const rows = ref<any[]>([])
 const total = ref(0)
@@ -279,6 +285,7 @@ async function save(field: string, value: unknown) {
     detail.value = { ...detail.value, [field]: value }
     historyStore.trackFieldChange(currentEntityKey(), field, value)
     await appStore.refreshDatInfo()
+    appStore.bumpChangesRevision()
     ElMessage.success({ message: `${field} 已保存`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
@@ -313,6 +320,7 @@ async function saveTable(rowsData: unknown[]) {
     const id = detail.value.id
     detail.value = await api.effectDetail(id)
     await appStore.refreshDatInfo()
+    appStore.bumpChangesRevision()
     ElMessage.success({ message: 'effect_commands 已更新', duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)

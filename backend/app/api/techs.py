@@ -98,11 +98,17 @@ def patch_tech(tech_id: int, body: dict):
 
     if "field" in body and "value" in body:
         field, value = body["field"], body["value"]
-        core.edit_field(t, field, value, f"techs[{tech_id}].{field}")
+        core.edit_field(
+            t, field, value, f"techs[{tech_id}].{field}",
+            meta={"table": "techs", "id": tech_id, "field": field},
+        )
         return {"id": tech_id, "field": field, "value": value}
 
     updated = []
     for k, v in body.items():
-        core.edit_field(t, k, v, f"techs[{tech_id}].{k}")
+        core.edit_field(
+            t, k, v, f"techs[{tech_id}].{k}",
+            meta={"table": "techs", "id": tech_id, "field": k},
+        )
         updated.append(k)
     return {"id": tech_id, "updated": updated}

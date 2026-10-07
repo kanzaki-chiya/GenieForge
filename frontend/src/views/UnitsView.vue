@@ -85,6 +85,7 @@
             <el-button size="small" @click="openCompare">对比…</el-button>
             <el-button size="small" @click="cp.copy(currentUnit)">复制</el-button>
             <el-button size="small" @click="cp.paste(currentUnit)">粘贴</el-button>
+            <el-button size="small" @click="patchDialogVisible = true">改动转为补丁</el-button>
           </div>
         </div>
 
@@ -423,6 +424,9 @@
       :list-fields="listFields"
       @apply="onApplyDiff"
     />
+
+    <!-- 改动转为补丁对话框 -->
+    <PatchFromChangesDialog v-model="patchDialogVisible" />
   </div>
 </template>
 
@@ -438,12 +442,14 @@ import SubTable from '../components/SubTable.vue'
 import Field from '../components/Field.vue'
 import DiffDrawer from '../components/DiffDrawer.vue'
 import RelationPanel from '../components/RelationPanel.vue'
+import PatchFromChangesDialog from '../components/PatchFromChangesDialog.vue'
 import { useCopyPaste } from '../composables/useCopyPaste'
 
 const cp = useCopyPaste('units')
 const appStore = useAppStore()
 const historyStore = useHistoryStore()
 const route = useRoute()
+const patchDialogVisible = ref(false)
 
 const civ = ref(0)
 const civs = ref<{ id: number; name: string }[]>([])
@@ -696,6 +702,7 @@ async function save(field: string, value: unknown) {
     setDetail(field, value)
     historyStore.trackFieldChange(currentEntityKey(), field, value)
     await appStore.refreshDatInfo()
+    appStore.bumpChangesRevision()
     ElMessage.success({ message: `${field} 已保存`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
@@ -752,16 +759,23 @@ async function saveTable(path: string, key: string, rowsData: unknown[]) {
     await api.patchUnit(civ.value, detail.value.unit_id, { field: path, value: rowsData })
     setDetail(key, rowsData)
     await appStore.refreshDatInfo()
+    appStore.bumpChangesRevision()
     ElMessage.success({ message: `${key} 已更新`, duration: 1000 })
   } catch (e: any) {
     ElMessage.error(e.message)
   }
 }
 
-// 监听 route.query.id，跳转时保持当前文明不变，只切换单位
+// 监听 route.query.id 与 route.query.civ，跳转时支持指定文明和单位
 watch(
-  () => route.query.id,
-  async (newId) => {
+  () => [route.query.id, route.query.civ],
+  async ([newId, newCiv]) => {
+    if (newCiv != null && newCiv !== '') {
+      const c = Number(newCiv)
+      if (!Number.isNaN(c) && c >= 0 && c !== civ.value) {
+        await switchCiv(c)
+      }
+    }
     if (newId != null && newId !== '') {
       const id = Number(newId)
       if (!Number.isNaN(id) && id >= 0 && id !== currentUnit.value) {
@@ -783,8 +797,10 @@ watch(
 )
 onMounted(async () => {
   await loadCivs()
+  const qCiv = Number(route.query.civ)
+  const initCiv = !Number.isNaN(qCiv) && qCiv >= 0 ? qCiv : 0
   if (civs.value.length) {
-    await switchCiv(0)
+    await switchCiv(initCiv)
   }
   const qId = Number(route.query.id)
   if (!Number.isNaN(qId) && qId >= 0) {
