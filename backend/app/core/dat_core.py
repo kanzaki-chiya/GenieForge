@@ -53,18 +53,43 @@ class DatCore:
         self._redo_stack: list[dict] = []
 
     # ------------------------------------------------------------------ 加载/保存
-    def load(self, path) -> dict:
+    @staticmethod
+    def _parse(path: Path):
+        """把 dat 文件解析为内存对象模型（单测可替换以避免真实 dat）。"""
         from genieutils.datfile import DatFile
 
         from .genieutils_fix import apply
 
         apply()
+        return DatFile.parse(str(path))
+
+    def load(self, path) -> dict:
         p = Path(path)
+        dat = self._parse(p)
         with self._lock:
-            self._dat = DatFile.parse(str(p))
+            self._dat = dat
             self._path = p
             self._source_hash = file_sha256(p)
             self._dirty = False
+            self._undo_stack.clear()
+            self._redo_stack.clear()
+            return self.info()
+
+    def load_snapshot(self, snapshot_path) -> dict:
+        """加载快照文件的内容，但工作路径保持当前 dat 文件。
+
+        版本回滚用：内存换成快照数据，磁盘上的工作文件不动，所以必须再保存一次
+        才落盘（否则下次保存会覆盖快照）。加载后标记为有未保存修改，撤销栈清空。
+        """
+        with self._lock:
+            if self._path is None:
+                raise RuntimeError("尚未加载 dat")
+            work = self._path
+        dat = self._parse(Path(snapshot_path))
+        with self._lock:
+            self._dat = dat
+            self._source_hash = file_sha256(work) if work.exists() else None
+            self._dirty = True
             self._undo_stack.clear()
             self._redo_stack.clear()
             return self.info()

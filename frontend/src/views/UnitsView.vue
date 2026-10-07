@@ -411,20 +411,6 @@
       <RelationPanel table="unit_headers" :entity-id="currentUnit >= 0 ? currentUnit : null" />
     </div>
 
-    <!-- 对比抽屉 -->
-    <DiffDrawer
-      v-if="detail"
-      v-model="diffVisible"
-      :table="'units'"
-      :entity-id="detail.unit_id"
-      :civ="civ"
-      :title="detail.name"
-      :baseline="detail"
-      :scalar-fields="scalarFields"
-      :list-fields="listFields"
-      @apply="onApplyDiff"
-    />
-
     <!-- 改动转为补丁对话框 -->
     <PatchFromChangesDialog v-model="patchDialogVisible" />
   </div>
@@ -432,7 +418,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAppStore, useHistoryStore, getEntityKey } from '../stores'
 import { api } from '../api/client'
@@ -440,7 +426,6 @@ import EnumSelect from '../components/EnumSelect.vue'
 import FieldControl from '../components/FieldControl.vue'
 import SubTable from '../components/SubTable.vue'
 import Field from '../components/Field.vue'
-import DiffDrawer from '../components/DiffDrawer.vue'
 import RelationPanel from '../components/RelationPanel.vue'
 import PatchFromChangesDialog from '../components/PatchFromChangesDialog.vue'
 import { useCopyPaste } from '../composables/useCopyPaste'
@@ -449,6 +434,7 @@ const cp = useCopyPaste('units')
 const appStore = useAppStore()
 const historyStore = useHistoryStore()
 const route = useRoute()
+const router = useRouter()
 const patchDialogVisible = ref(false)
 
 const civ = ref(0)
@@ -463,7 +449,6 @@ const dim2 = ref('none')
 const detail = ref<any>(null)
 const currentUnit = ref(-1)
 const civItems = ref<{ value: number; label: string }[]>([])
-const diffVisible = ref(false)
 
 const unitDims = [
   { key: 'none', label: '（无）' },
@@ -495,47 +480,6 @@ const damageCols = [
   { key: 'graphic_id', label: '图形 ID', type: 'number', width: 90 },
   { key: 'damage_percent', label: '伤害阈值 %', type: 'number', width: 100 },
   { key: 'apply_mode', label: '模式', type: 'number', width: 70 },
-]
-
-const scalarFields = [
-  { key: 'name', label: '名称' },
-  { key: 'type', label: '类型' },
-  { key: 'class', label: '类别' },
-  { key: 'id', label: 'ID' },
-  { key: 'copy_id', label: 'Copy ID' },
-  { key: 'base_id', label: 'Base ID' },
-  { key: 'trait', label: 'Trait' },
-  { key: 'civilization', label: '文明' },
-  { key: 'hit_points', label: '生命' },
-  { key: 'speed', label: '速度' },
-  { key: 'line_of_sight', label: '视野' },
-  { key: 'garrison_capacity', label: '驻军容量' },
-  { key: 'base_armor', label: '基础护甲' },
-  { key: 'max_range', label: '最大射程' },
-  { key: 'min_range', label: '最小射程' },
-  { key: 'reload_time', label: '装填时间' },
-  { key: 'icon_id', label: '图标' },
-  { key: 'special_graphic', label: 'Special Graphic' },
-  { key: 'dying_graphic', label: 'Dying Graphic' },
-  { key: 'enabled', label: 'Enabled' },
-  { key: 'disabled', label: 'Disabled' },
-  { key: 'hide_in_editor', label: 'Hide in Editor' },
-  { key: 'hero_mode', label: 'Hero Mode' },
-  { key: 'interaction_mode', label: 'Interaction' },
-  { key: 'combat_level', label: 'Combat Level' },
-  { key: 'sort_number', label: 'Sort Number' },
-  { key: 'interface_kind', label: 'Interface Kind' },
-  { key: 'obstruction_type', label: '障碍类型' },
-  { key: 'obstruction_class', label: '障碍类别' },
-]
-
-const listFields = [
-  { key: 'attacks', label: '攻击' },
-  { key: 'armors', label: '护甲' },
-  { key: 'resource_costs', label: '费用' },
-  { key: 'resource_storages', label: '资源存储' },
-  { key: 'train_locations', label: '训练位置' },
-  { key: 'damage_graphics', label: 'Damage Graphics' },
 ]
 
 const civName = computed(() => {
@@ -621,26 +565,8 @@ function registerDetailBaseline(data: any) {
 }
 
 function openCompare() {
-  diffVisible.value = true
-}
-
-function onApplyDiff(p: { field: string; value: unknown; list: boolean }) {
-  if (p.list) {
-    const keyMap: Record<string, { path: string; key: string }> = {
-      attacks: { path: 'type_50.attacks', key: 'attacks' },
-      armors: { path: 'type_50.armours', key: 'armors' },
-      train_locations: { path: 'creatable.train_locations', key: 'train_locations' },
-      resource_costs: { path: 'creatable.resource_costs', key: 'resource_costs' },
-      damage_graphics: { path: 'damage_graphics', key: 'damage_graphics' },
-      resource_storages: { path: 'resource_storages', key: 'resource_storages' },
-    }
-    const m = keyMap[p.field]
-    if (m) {
-      saveTable(m.path, m.key, p.value as unknown[])
-    }
-  } else {
-    save(p.field, p.value)
-  }
+  if (!detail.value || !detail.value.present) return
+  router.push({ path: `/compare/units/${detail.value.unit_id}`, query: { civ: String(civ.value) } })
 }
 
 async function loadCivs() {

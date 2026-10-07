@@ -3,6 +3,7 @@
 加载后自动构建引用索引，并尝试加载语言文件（用于中文显示名）。
 """
 
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -11,9 +12,11 @@ from ..config import config as app_config
 from ..core.names import name_resolver
 from ..core.refs import ref_index
 from ..core.unit_index import unit_index
-from ..core.version import version_store
+from ..core.version import KIND_SAVED, version_store
 from ..deps import dat_core, require_dat
 from ..schemas import DatLoadRequest, DatSaveRequest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/dat", tags=["dat"])
 
@@ -73,11 +76,12 @@ def save_dat(body: DatSaveRequest | None = None):
         result = dat_core.save(body.path if body else None)
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    version_store.record(
-        description=f"保存 dat（dirty={dat_core.dirty}）",
-        path=result["path"],
-        sha256=result["sha256"],
-    )
+    # 保存本身已经成功：快照只是附带能力，失败时记录日志并在结果里告知前端
+    try:
+        version_store.snapshot(result["path"], "保存 dat", KIND_SAVED)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("保存成功但生成版本快照失败: %s", exc)
+        result = {**result, "snapshot_error": str(exc)}
     return result
 
 

@@ -71,9 +71,9 @@ export const api = {
   // 枚举元数据
   meta: (name: string) => request(`/api/meta/${name}`),
 
-  // diff 目标对比
-  diffLoadTarget: (path: string) =>
-    request('/api/diff/target/load', { method: 'POST', body: JSON.stringify({ path }) }),
+  // diff 目标对比（按版本加载；后端保留 /target/load 供旧调用按路径加载）
+  diffLoadVersion: (id: number) =>
+    request('/api/diff/target/load-version', { method: 'POST', body: JSON.stringify({ id }) }),
   diffEntity: (table: string, id: number, civ?: number) =>
     request(`/api/diff/target/entity/${table}/${id}` + (civ != null ? qs({ civ }) : '')),
 
@@ -104,7 +104,10 @@ export const api = {
 
   // 版本 / 更新
   versionList: () => request('/api/version/list'),
-  versionCheckout: (id: number) =>
-    request('/api/version/checkout', { method: 'POST', body: JSON.stringify({ id }) }),
+  versionCheckout: (id: number, force = false) =>
+    request('/api/version/checkout', { method: 'POST', body: JSON.stringify({ id, force }) }),
+  versionImport: (path: string, label?: string) =>
+    request('/api/version/import', { method: 'POST', body: JSON.stringify({ path, label }) }),
+  versionDelete: (id: number) => request(`/api/version/${id}`, { method: 'DELETE' }),
   updateCheck: () => request('/api/update/check')
 }

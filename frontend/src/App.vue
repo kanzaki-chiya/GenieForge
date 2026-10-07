@@ -190,6 +190,11 @@ function isNavActive(path: string): boolean {
   if (path === '/') {
     return route.path === '/'
   }
+  // 并排对比页挂在对应数据表的导航下
+  if (route.path.startsWith('/compare/')) {
+    const table = route.path.split('/')[2]
+    return path === `/${table}`
+  }
   return route.path.startsWith(path)
 }
 
@@ -246,8 +251,12 @@ async function handleSave() {
   if (isActing.value) return
   isActing.value = true
   try {
-    await api.saveDat()
-    ElMessage.success('已保存 dat 文件')
+    const r: any = await api.saveDat()
+    if (r?.snapshot_error) {
+      ElMessage.warning(`已保存，但版本快照失败：${r.snapshot_error}`)
+    } else {
+      ElMessage.success('已保存 dat 文件')
+    }
     await appStore.refreshDatInfo()
   } catch (e: any) {
     ElMessage.error(parseErrorMessage(e))
