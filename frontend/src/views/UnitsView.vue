@@ -588,7 +588,7 @@ function registerDetailBaseline(data: any) {
       }
     })
   }
-  historyStore.syncEntity(key, data)
+  historyStore.syncEntity(key, data, detailPath)
 }
 
 function openCompare() {
@@ -656,8 +656,13 @@ async function onSelect(row: any) {
   await selectUnit(row.unit_id)
 }
 
+// 保存路径（type_50.x、creatable.x）对应详情里的扁平字段
+function detailPath(field: string): string {
+  return field.replace(/^(type_50|creatable|building)\./, '')
+}
+
 function setDetail(field: string, value: unknown) {
-  const parts = field.split('.')
+  const parts = detailPath(field).split('.')
   let cur: any = detail.value
   for (let i = 0; i < parts.length - 1; i++) {
     cur = cur[parts[i]]

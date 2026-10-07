@@ -200,7 +200,7 @@ async function fetch() {
 }
 
 async function loadRefs() {
-  const [tn, un]: any[] = await Promise.all([api.techNames(), api.units(0, undefined)])
+  const [tn, un]: any[] = await Promise.all([api.techNames(), api.units(0, undefined, 1, 5000)])
   techItems.value = tn.items.map((x: any) => ({ value: x.id, label: x.name }))
   unitItems.value = (un.items || []).map((x: any) => ({ value: x.unit_id, label: x.display_name || x.name }))
 }

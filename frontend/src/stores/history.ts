@@ -107,14 +107,15 @@ export const useHistoryStore = defineStore('history', () => {
    * 按已记录的原值，逐个字段（包括 required_techs.0、resource_costs.0.amount 等嵌套路径）
    * 从最新 detail 取值，重新计算该条目的改动状态。
    * 每次加载详情时在 recordBaseline 之后调用。
+   * mapPath：保存路径与 detail 结构不一致时（如单位的 type_50.base_armor 对应 detail.base_armor），把前者映射为后者。
    * 注意：已知限制——撤销的是别的条目时，那个条目的列表圆点要等下次打开它时才更新。
    */
-  function syncEntity(key: string, detail: unknown) {
+  function syncEntity(key: string, detail: unknown, mapPath?: (fieldPath: string) => string) {
     const baselineObj = baselines[key]
     if (!baselineObj || !detail) return
 
     for (const fieldPath of Object.keys(baselineObj)) {
-      const currentVal = getNestedValue(detail, fieldPath)
+      const currentVal = getNestedValue(detail, mapPath ? mapPath(fieldPath) : fieldPath)
       trackFieldChange(key, fieldPath, currentVal)
     }
   }
