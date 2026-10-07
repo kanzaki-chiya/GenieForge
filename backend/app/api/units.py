@@ -222,5 +222,8 @@ def patch_unit(civ: int, unit_id: int, body: dict):
     if field is None:
         raise HTTPException(400, "缺少 field")
     value = body.get("value")
-    dat_core.edit_field(u, field, value, f"units[{civ}][{unit_id}].{field}")
+    dat_core.edit_field(
+        u, field, value, f"units[{civ}][{unit_id}].{field}",
+        meta={"table": "units", "id": unit_id, "civ": civ, "field": field},
+    )
     return {"civ": civ, "unit_id": unit_id, "field": field, "value": value}

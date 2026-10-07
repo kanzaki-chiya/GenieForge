@@ -85,5 +85,8 @@ def patch_effect(effect_id: int, body: dict):
     if field is None:
         raise HTTPException(400, "缺少 field")
     value = body.get("value")
-    dat_core.edit_field(e, field, value, f"effects[{effect_id}].{field}")
+    dat_core.edit_field(
+        e, field, value, f"effects[{effect_id}].{field}",
+        meta={"table": "effects", "id": effect_id, "field": field},
+    )
     return {"id": effect_id, "field": field, "value": value}

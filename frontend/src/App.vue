@@ -1,205 +1,497 @@
 <template>
-  <el-container class="app-shell" direction="vertical">
-    <!-- 顶栏：品牌 + dat 状态 + 全局搜索 + 保存/撤销/重做（改版①） -->
-    <div class="topbar">
-      <div class="brand">GenieForge</div>
-      <div v-if="datInfo && datInfo.version" class="filechip">
-        <span class="fname">{{ fileName }}</span>
-        <span class="fver">VER {{ datInfo.version }}</span>
-        <span v-if="datInfo.dirty" class="fdirty"><span class="dot"></span>未保存</span>
-        <span v-else class="fclean">已保存</span>
-      </div>
-      <div v-else class="filechip"><span class="fnone">尚未加载 dat</span></div>
-      <div class="search" @click="searchOpen = true">
-        <el-input
-          :model-value="''"
-          size="small"
-          readonly
-          placeholder="搜索科技 / 单位 / 效果 / 文明，或输入 #ID"
+  <div class="app-layout">
+    <!-- 顶栏 -->
+    <header class="topbar">
+      <!-- 左：Logo -->
+      <div class="brand">
+        <svg
+          class="brand-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--gold)"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
         >
-          <template #suffix><span class="kbd">Ctrl K</span></template>
-        </el-input>
+          <path d="M4 20 12 4l8 16Z" />
+          <path d="M8 14h8" />
+        </svg>
+        <span>GenieForge</span>
       </div>
+
+      <!-- 中：文件状态 -->
+      <div class="filechip">
+        <template v-if="datInfo && datInfo.version">
+          <span class="filechip-name mono" :title="datInfo.path || ''">
+            {{ fileName }}
+          </span>
+          <span class="filechip-ver">{{ datInfo.version }}</span>
+          <span v-if="datInfo.dirty" class="filechip-dirty">
+            <span class="dot"></span>有未保存改动
+          </span>
+        </template>
+        <template v-else>
+          <span class="filechip-empty">未加载 dat</span>
+        </template>
+      </div>
+
+      <!-- 中间：全局搜索 -->
+      <div class="topbar-search">
+        <GlobalSearch :disabled="!datInfo?.version" />
+      </div>
+      <!-- 顶栏右侧：撤销 / 重做 / 保存 -->
       <div class="actions">
-        <el-button size="small" :disabled="!loaded" @click="doUndo">撤销</el-button>
-        <el-button size="small" :disabled="!loaded" @click="doRedo">重做</el-button>
-        <el-button size="small" type="primary" :disabled="!loaded" @click="doSave">保存</el-button>
+        <button
+          type="button"
+          class="btn"
+          :disabled="!datInfo?.version || isActing"
+          @click="handleUndo"
+        >
+          撤销
+        </button>
+        <button
+          type="button"
+          class="btn"
+          :disabled="!datInfo?.version || isActing"
+          @click="handleRedo"
+        >
+          重做
+        </button>
+        <button
+          type="button"
+          class="btn primary"
+          :disabled="!datInfo?.version || isActing"
+          @click="handleSave"
+        >
+          保存
+        </button>
       </div>
-    </div>
+    </header>
 
-    <el-container class="below">
-      <el-aside width="190px" class="aside">
-        <el-menu :default-active="$route.path" router class="menu">
-          <el-menu-item index="/">
-            <span>工作台</span>
-          </el-menu-item>
-          <el-sub-menu index="data">
-            <template #title><span>数据浏览</span></template>
-            <el-menu-item index="/techs">科技</el-menu-item>
-            <el-menu-item index="/units">单位</el-menu-item>
-            <el-menu-item index="/civs">文明</el-menu-item>
-            <el-menu-item index="/effects">效果</el-menu-item>
-          </el-sub-menu>
-          <el-sub-menu index="tools">
-            <template #title><span>工具</span></template>
-            <el-menu-item index="/diff">对比差异</el-menu-item>
-            <el-menu-item index="/patch">补丁</el-menu-item>
-          </el-sub-menu>
-          <el-menu-item index="/version">
-            <span>版本</span>
-          </el-menu-item>
-          <el-menu-item index="/settings">
-            <span>设置</span>
-          </el-menu-item>
-        </el-menu>
-      </el-aside>
-      <el-main class="main">
+    <!-- 主体区域：左侧导航 + 内容区 -->
+    <div class="body">
+      <!-- 左侧导航 -->
+      <nav class="nav" aria-label="主导航">
+        <!-- 首页 / 工作台入口 -->
+        <router-link
+          to="/"
+          class="navbtn"
+          :class="{ on: isNavActive('/') }"
+        >
+          <span>工作台</span>
+        </router-link>
+
+        <span class="navgroup">数据</span>
+        <router-link
+          to="/techs"
+          class="navbtn"
+          :class="{ on: isNavActive('/techs') }"
+        >
+          <span>科技</span>
+          <span v-if="datInfo?.counts?.techs != null" class="mono nav-count">
+            {{ datInfo.counts.techs }}
+          </span>
+        </router-link>
+        <router-link
+          to="/units"
+          class="navbtn"
+          :class="{ on: isNavActive('/units') }"
+        >
+          <span>单位</span>
+          <span v-if="datInfo?.counts?.unit_headers != null" class="mono nav-count">
+            {{ datInfo.counts.unit_headers }}
+          </span>
+        </router-link>
+        <router-link
+          to="/civs"
+          class="navbtn"
+          :class="{ on: isNavActive('/civs') }"
+        >
+          <span>文明</span>
+          <span v-if="datInfo?.counts?.civs != null" class="mono nav-count">
+            {{ datInfo.counts.civs }}
+          </span>
+        </router-link>
+        <router-link
+          to="/effects"
+          class="navbtn"
+          :class="{ on: isNavActive('/effects') }"
+        >
+          <span>效果</span>
+          <span v-if="datInfo?.counts?.effects != null" class="mono nav-count">
+            {{ datInfo.counts.effects }}
+          </span>
+        </router-link>
+
+        <span class="navgroup navgroup-gap">工具</span>
+        <router-link
+          to="/diff"
+          class="navbtn"
+          :class="{ on: isNavActive('/diff') }"
+        >
+          <span>对比</span>
+        </router-link>
+        <router-link
+          to="/patch"
+          class="navbtn"
+          :class="{ on: isNavActive('/patch') }"
+        >
+          <span>补丁</span>
+        </router-link>
+        <router-link
+          to="/version"
+          class="navbtn"
+          :class="{ on: isNavActive('/version') }"
+        >
+          <span>版本</span>
+        </router-link>
+
+        <div class="nav-spacer"></div>
+
+        <router-link
+          to="/settings"
+          class="navbtn"
+          :class="{ on: isNavActive('/settings') }"
+        >
+          <span>设置</span>
+        </router-link>
+      </nav>
+
+      <!-- 路由内容区 -->
+      <main class="main-content">
         <router-view />
-      </el-main>
-    </el-container>
-
-    <GlobalSearch v-model="searchOpen" />
-  </el-container>
+      </main>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from './stores'
 import { api } from './api/client'
 import GlobalSearch from './components/GlobalSearch.vue'
-import { useAppStore } from './stores'
+const route = useRoute()
+const appStore = useAppStore()
+const isActing = ref(false)
 
-const store = useAppStore()
-const datInfo = computed(() => store.datInfo)
-const loaded = computed(() => !!datInfo.value?.version)
+const datInfo = computed(() => appStore.datInfo)
+
 const fileName = computed(() => {
-  const p: string | undefined = datInfo.value?.path
-  return p ? p.split(/[\\/]/).pop() : ''
+  const p = datInfo.value?.path
+  if (!p) return ''
+  const segs = p.replace(/\\/g, '/').split('/')
+  return segs[segs.length - 1] || p
 })
 
-const searchOpen = ref(false)
-let pollTimer: ReturnType<typeof setInterval> | undefined
-
-async function doSave() {
-  try {
-    const r: any = await api.saveDat()
-    ElMessage.success(`已保存：${r.path.split(/[\\/]/).pop()}`)
-  } catch (e: any) {
-    ElMessage.error(e.message)
-  } finally {
-    store.refresh()
+function isNavActive(path: string): boolean {
+  if (path === '/') {
+    return route.path === '/'
   }
+  // 并排对比页挂在对应数据表的导航下
+  if (route.path.startsWith('/compare/')) {
+    const table = route.path.split('/')[2]
+    return path === `/${table}`
+  }
+  return route.path.startsWith(path)
 }
 
-async function doUndo() {
+function parseErrorMessage(err: any): string {
+  if (err?.message) {
+    const raw = String(err.message)
+    // 尝试提取 JSON detail
+    const idx = raw.indexOf('{')
+    if (idx !== -1) {
+      try {
+        const parsed = JSON.parse(raw.slice(idx))
+        if (parsed?.detail) return parsed.detail
+      } catch {
+        // fallback
+      }
+    }
+    // 移除 409 Conflict: 前缀
+    return raw.replace(/^\d+\s+[^:]+:\s*/, '')
+  }
+  return '操作失败'
+}
+
+async function handleUndo() {
+  if (isActing.value) return
+  isActing.value = true
   try {
     const r: any = await api.undo()
-    ElMessage.info(`已撤销：${r.description}`)
+    ElMessage.success(`已撤销：${r.description || ''}`)
+    await appStore.refreshDatInfo()
+    appStore.bumpRevision()
   } catch (e: any) {
-    ElMessage.warning(e.message)
+    ElMessage.warning(parseErrorMessage(e))
   } finally {
-    store.refresh()
+    isActing.value = false
   }
 }
 
-async function doRedo() {
+async function handleRedo() {
+  if (isActing.value) return
+  isActing.value = true
   try {
     const r: any = await api.redo()
-    ElMessage.info(`已重做：${r.description}`)
+    ElMessage.success(`已重做：${r.description || ''}`)
+    await appStore.refreshDatInfo()
+    appStore.bumpRevision()
   } catch (e: any) {
-    ElMessage.warning(e.message)
+    ElMessage.warning(parseErrorMessage(e))
   } finally {
-    store.refresh()
+    isActing.value = false
   }
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-    e.preventDefault()
-    searchOpen.value = true
-    return
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-    e.preventDefault()
-    if (loaded.value) doSave()
-    return
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-    e.preventDefault()
-    if (loaded.value) doUndo()
+async function handleSave() {
+  if (isActing.value) return
+  isActing.value = true
+  try {
+    const r: any = await api.saveDat()
+    if (r?.snapshot_error) {
+      ElMessage.warning(`已保存，但版本快照失败：${r.snapshot_error}`)
+    } else {
+      ElMessage.success('已保存 dat 文件')
+    }
+    await appStore.refreshDatInfo()
+  } catch (e: any) {
+    ElMessage.error(parseErrorMessage(e))
+  } finally {
+    isActing.value = false
   }
 }
 
-onMounted(() => {
-  store.refresh()
-  // 轻量轮询：编辑操作分散在各页面，用 dirty 状态驱动顶栏展示
-  pollTimer = setInterval(() => store.refresh(), 5000)
-  window.addEventListener('keydown', onKeydown)
-})
-
-onBeforeUnmount(() => {
-  clearInterval(pollTimer)
-  window.removeEventListener('keydown', onKeydown)
+onMounted(async () => {
+  await appStore.refreshDatInfo()
 })
 </script>
 
 <style scoped>
-.app-shell {
+.app-layout {
+  display: flex;
+  flex-direction: column;
   height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--app);
+  color: var(--fg);
 }
+
+/* 顶栏 */
 .topbar {
-  height: 46px;
+  flex: 0 0 48px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 14px;
-  background: #232528;
-  border-bottom: 1px solid #3c3f41;
+  gap: 16px;
+  padding: 0 16px;
+  background: #181b20;
+  border-bottom: 1px solid var(--line);
+  z-index: 10;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--fg);
+  letter-spacing: 0.02em;
+}
+
+.brand-icon {
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
 }
-.brand {
-  font-weight: 700;
-  font-size: 14px;
-  color: #e6e6e6;
-}
+
 .filechip {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 3px 10px;
-  border: 1px solid #3c3f41;
-  border-radius: 5px;
-  background: #1e1f22;
+  gap: 10px;
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--app);
   font-size: 12px;
+  max-width: 480px;
 }
-.fname { color: #d4d4d4; }
-.fver { color: #9a9a9a; }
-.fdirty { color: #e0a43a; display: inline-flex; align-items: center; gap: 5px; }
-.dot { width: 6px; height: 6px; border-radius: 50%; background: #e0a43a; display: inline-block; }
-.fclean { color: #6a9955; }
-.fnone { color: #6f6f6f; }
-.search { flex: 1; max-width: 460px; cursor: text; }
-.search :deep(.el-input__wrapper) { cursor: text; }
-.kbd { font-size: 10px; color: #6f6f6f; border: 1px solid #3c3f41; border-radius: 3px; padding: 0 4px; font-family: Consolas, monospace; }
-.actions { margin-left: auto; display: flex; gap: 8px; }
-.below { flex: 1; min-height: 0; }
-.aside {
-  background: #232528;
-  border-right: 1px solid #3c3f41;
+
+.filechip-name {
+  color: var(--fg-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.filechip-ver {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.filechip-dirty {
+  color: var(--gold);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.filechip-empty {
+  color: var(--muted);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  display: inline-block;
+  box-shadow: 0 0 6px rgba(224, 164, 58, 0.6);
+}
+
+.topbar-search {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+/* 通用按钮（效果图规范） */
+.btn {
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  background: #252931;
+  border: 1px solid #353a44;
+  border-radius: 6px;
+  padding: 0 14px;
+  min-height: 30px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: #2e333d;
+  border-color: #444b58;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 700;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: #ebae46;
+  border-color: #ebae46;
+}
+
+/* 主体 */
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 左侧导航 */
+.nav {
+  flex: 0 0 188px;
+  padding: 14px 10px;
+  background: #15181c;
+  border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
 }
-.logo {
-  display: none;
+
+.navgroup {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  padding: 0 10px;
+  margin: 6px 0 4px;
 }
-.menu {
-  border-right: none;
+
+.navgroup-gap {
+  margin-top: 16px;
+}
+
+.navbtn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg-2);
   background: transparent;
-  flex: 1;
-  padding: 4px 0;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  min-height: 34px;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
 }
-.main {
-  padding: 0;
+
+.navbtn:hover {
+  background: #1f232a;
+  color: var(--fg);
+}
+
+.navbtn.on {
+  background: #252931;
+  color: #ffffff;
+  box-shadow: inset 2px 0 0 var(--gold);
+  font-weight: 500;
+}
+
+.nav-count {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.navbtn.on .nav-count {
+  color: var(--fg-2);
+}
+
+.nav-spacer {
+  flex: 1;
+  min-height: 16px;
+}
+
+/* 内容区 */
+.main-content {
+  flex: 1;
+  min-width: 0;
   overflow: auto;
+  background: var(--app);
 }
 </style>

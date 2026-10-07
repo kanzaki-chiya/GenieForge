@@ -39,6 +39,7 @@ export const api = {
   datReloadLanguage: () => request('/api/dat/reload-language', { method: 'POST' }),
   undo: () => request('/api/dat/undo', { method: 'POST' }),
   redo: () => request('/api/dat/redo', { method: 'POST' }),
+  datChanges: () => request<{ changes: any[] }>('/api/dat/changes'),
 
   // 资源
   techs: (params: Record<string, string | number> = {}) => request('/api/techs' + qs(params)),
@@ -80,11 +81,9 @@ export const api = {
   // 枚举元数据
   meta: (name: string) => request(`/api/meta/${name}`),
 
-  // diff 目标对比
-  diffLoadTarget: (path: string) =>
-    request('/api/diff/target/load', { method: 'POST', body: JSON.stringify({ path }) }),
-  diffLoadVersion: (versionId: number) =>
-    request('/api/diff/target/load', { method: 'POST', body: JSON.stringify({ version_id: versionId }) }),
+  // diff 目标对比（按版本加载；后端保留 /target/load 供旧调用按路径加载）
+  diffLoadVersion: (id: number) =>
+    request('/api/diff/target/load-version', { method: 'POST', body: JSON.stringify({ id }) }),
   diffEntity: (table: string, id: number, civ?: number) =>
     request(`/api/diff/target/entity/${table}/${id}` + (civ != null ? qs({ civ }) : '')),
 
@@ -97,20 +96,35 @@ export const api = {
     request('/api/copy', { method: 'POST', body: JSON.stringify({ table, src, dst, civ }) }),
   diff: (base: string, target: string) =>
     request('/api/diff', { method: 'POST', body: JSON.stringify({ base, target }) }),
-  patchApply: (patch: string) =>
-    request('/api/patch/apply', { method: 'POST', body: JSON.stringify({ patch }) }),
-  patchPreview: (patch: string) =>
-    request('/api/patch/preview', { method: 'POST', body: JSON.stringify({ patch }) }),
+  patchApply: (patch: string, overrides?: Record<number, number[]>, skip?: number[]) =>
+    request('/api/patch/apply', { method: 'POST', body: JSON.stringify({ patch, overrides, skip }) }),
+  patchPreview: (patch: string, overrides?: Record<number, number[]>, skip?: number[]) =>
+    request('/api/patch/preview', { method: 'POST', body: JSON.stringify({ patch, overrides, skip }) }),
   patchList: () => request('/api/patch/list'),
+  patchStatus: () => request<{ items: Array<{ name: string; applied: number; conflicts: number; missing: number; errors: number; ok: boolean }> }>('/api/patch/status'),
+  patchParse: (yaml: string) =>
+    request<{ spec: any }>('/api/patch/parse', { method: 'POST', body: JSON.stringify({ yaml }) }),
+  patchDump: (spec: any) =>
+    request<{ yaml: string }>('/api/patch/dump', { method: 'POST', body: JSON.stringify({ spec }) }),
+  patchResolve: (yaml: string, step: number, ids: number[]) =>
+    request<{ yaml: string; steps_added: number; warnings: string[] }>('/api/patch/resolve', { method: 'POST', body: JSON.stringify({ yaml, step, ids }) }),
   patchSave: (name: string, content: string) =>
     request('/api/patch/save', { method: 'POST', body: JSON.stringify({ name, content }) }),
   patchDelete: (name: string) => request(`/api/patch/${name}`, { method: 'DELETE' }),
   patchGenerate: (base: string, target: string) =>
     request('/api/patch/generate', { method: 'POST', body: JSON.stringify({ base, target }) }),
+  patchFromChanges: (indices?: number[]) =>
+    request<{ yaml: string; count: number; skipped: Array<{ index: number; reason: string }> }>(
+      '/api/patch/from-changes',
+      { method: 'POST', body: JSON.stringify(indices !== undefined ? { indices } : {}) }
+    ),
 
   // 版本 / 更新
   versionList: () => request('/api/version/list'),
-  versionCheckout: (id: number) =>
-    request('/api/version/checkout', { method: 'POST', body: JSON.stringify({ id }) }),
+  versionCheckout: (id: number, force = false) =>
+    request('/api/version/checkout', { method: 'POST', body: JSON.stringify({ id, force }) }),
+  versionImport: (path: string, label?: string) =>
+    request('/api/version/import', { method: 'POST', body: JSON.stringify({ path, label }) }),
+  versionDelete: (id: number) => request(`/api/version/${id}`, { method: 'DELETE' }),
   updateCheck: () => request('/api/update/check')
 }

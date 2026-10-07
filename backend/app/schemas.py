@@ -35,7 +35,8 @@ class DiffRequest(BaseModel):
 class PatchApplyRequest(BaseModel):
     patch: Optional[str] = None
     path: Optional[str] = None
-
+    overrides: Optional[dict[str, list[int]]] = None
+    skip: Optional[list[int]] = None
 
 class PatchGenerateRequest(BaseModel):
     base: str

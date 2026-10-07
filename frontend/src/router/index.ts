@@ -9,6 +9,11 @@ const router = createRouter({
     { path: '/civs', name: 'civs', component: () => import('../views/CivsView.vue') },
     { path: '/effects', name: 'effects', component: () => import('../views/EffectsView.vue') },
     { path: '/diff', name: 'diff', component: () => import('../views/DiffView.vue') },
+    {
+      path: '/compare/:table/:id',
+      name: 'compare',
+      component: () => import('../views/CompareView.vue')
+    },
     { path: '/patch', name: 'patch', component: () => import('../views/PatchView.vue') },
     { path: '/version', name: 'version', component: () => import('../views/VersionView.vue') },
     { path: '/settings', name: 'settings', component: () => import('../views/SettingsView.vue') }

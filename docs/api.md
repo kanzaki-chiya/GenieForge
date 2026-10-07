@@ -22,10 +22,11 @@
 |------|------|------|
 | POST | `/api/dat/load` | 加载 dat（body `{path}`），构建引用索引并加载语言文件 |
 | GET | `/api/dat/info` | 当前 dat 版本、路径、是否有未保存修改、各表数量 |
-| POST | `/api/dat/save` | 保存（body 可选 `{path}`，省略则覆盖原文件），并记录版本 |
+| POST | `/api/dat/save` | 保存（body 可选 `{path}`，省略则覆盖原文件），并生成一条 `saved` 版本快照；快照失败不影响保存，结果里附 `snapshot_error` |
 | POST | `/api/dat/reload-language` | 重新加载配置中的语言文件 |
 | POST | `/api/dat/undo` | 撤销一步 |
 | POST | `/api/dat/redo` | 重做一步 |
+| GET | `/api/dat/changes` | 查看本次修改记录（撤销栈中的结构化改动） |
 
 ### 数据表
 
@@ -75,26 +76,39 @@
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/diff` | 对比两个 dat（body `{base, target}`），返回各表增删数量、逐条变更与 ID 漂移 |
-| POST | `/api/diff/target/load` | 加载一个对比用的目标 dat（body `{path}` 或 `{version_id}`，二选一），不影响当前编辑的 dat |
+| POST | `/api/diff/target/load` | 按路径加载一个对比用的目标 dat（body `{path}`），不影响当前编辑的 dat |
+| POST | `/api/diff/target/load-version` | 按版本 id 加载对比目标（body `{id}`），返回内容同 `/target/load`，另附 `version` |
 | GET | `/api/diff/target/entity/{table}/{id}?civ=` | 读取目标 dat 中某条目的详情（结构与当前 dat 详情相同） |
 
 ### 补丁
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/patch/preview` | 预览：body `{patch}`（YAML 文本）或 `{path}`，不修改数据 |
-| POST | `/api/patch/apply` | 应用补丁（可整体撤销），返回逐步结果与汇总 |
+| POST | `/api/patch/preview` | 预览：body `{patch, overrides?, skip?}`（YAML 文本）或 `{path}`，不修改数据 |
+| POST | `/api/patch/apply` | 应用补丁（可整体撤销）：body 同预览，返回逐步结果与汇总 |
+| POST | `/api/patch/parse` | 解析补丁 YAML 为完整 spec：body `{yaml}`，失败返回 400 |
+| POST | `/api/patch/dump` | 完整 spec 序列化为 YAML：body `{spec}`（注释会丢失） |
+| POST | `/api/patch/resolve` | “记住选择”：body `{yaml, step, ids}`，把第 step 步按选中 id 展开为按名称精确匹配的多步 |
+| GET | `/api/patch/status` | 每个补丁在当前 dat 上的 dry_run 状态（未加载 dat 返回 409；坏文件只影响自己那一项） |
 | POST | `/api/patch/generate` | 从两个 dat 的差异生成补丁：body `{base, target}` |
-| GET | `/api/patch/list` | 列出 `patches/` 目录下的补丁 |
+| POST | `/api/patch/from-changes` | 从本次修改记录生成补丁 YAML：body `{indices?}`，返回 `{yaml, count, skipped}` |
+| GET | `/api/patch/list` | 列出 `patches/` 目录下的补丁（不含 `manifest.yaml`） |
 | POST | `/api/patch/save` | 保存补丁：body `{name, content}`（文件名只保留字母、数字、`_`、`-`） |
 | DELETE | `/api/patch/{name}` | 删除补丁 |
+
+- `overrides`：`{步骤下标: [条目 id]}`（JSON 键为字符串，接口层转 int），有 override 的步骤不走匹配、逐个 id 应用；越界 id 记 error 并触发回滚。
+- `skip`：`[步骤下标]`，记为 `skipped`（reason“已手动跳过”），不算错误、不触发回滚。
+- `conflict` 结果附 `candidate_details: [{id, name, display_name}]`（`candidates` id 列表保留）；`missing` 结果附 `suggestions`（最多 3 条，`[{id, name, display_name, score, reasons}]`）。
+- 每条结果带 `step`（原步骤下标；override 展开的多条明细共用一步）。
 
 ### 版本、Git 与更新
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/version/list` | 本次运行内的保存记录 |
-| POST | `/api/version/checkout` | 重新加载某个版本的文件：body `{id}` |
+| GET | `/api/version/list` | 版本列表：`{versions, total_size}`（`total_size` 为快照目录实际占用字节） |
+| POST | `/api/version/checkout` | 回滚到某个版本：body `{id, force?}`，加载快照内容，工作路径仍是原 dat，需保存才写回 |
+| POST | `/api/version/import` | 把任意 dat 存为版本：body `{path, label}`，路径不存在返回 400 |
+| DELETE | `/api/version/{id}` | 删除版本（没有其他记录引用同一快照时一并删除快照文件） |
 | POST | `/api/git/init` | 在补丁目录初始化 Git 仓库 |
 | GET | `/api/git/status` | 补丁目录的 Git 状态 |
 | GET | `/api/git/log?n=` | 提交历史 |
@@ -102,6 +116,23 @@
 | POST | `/api/git/checkout` | 切换到某提交：body `{ref}` |
 | GET | `/api/update/check` | 检查 GitHub Releases 是否有新版本 |
 | POST | `/api/update/download` | 下载更新包到应用缓存目录：body `{asset_url, sha256?}`，`asset_url` 必须是本项目 GitHub Release 的下载地址 |
+
+#### 版本快照存放位置
+
+`platformdirs.user_data_dir("GenieForge", appauthor=False) / "versions"`（Windows 下即
+`%LOCALAPPDATA%\GenieForge\versions`）：
+
+- `snapshots/<sha256>.dat`：快照文件，按内容哈希命名，**内容相同的 dat 只存一份**；
+  文件名只接受 64 位小写十六进制哈希，索引里 `sha256` 非法的记录会被忽略（不会读写快照目录之外的文件）；
+- `index.json`：`{"next_id": N, "versions": [...]}`，原子写入（先写临时文件再 `os.replace`），
+  损坏时按空索引处理。旧的「纯记录列表」格式仍能读取，写回后自动升级为新格式。
+
+每次写入都会把 `next_id` 推到 `max(id) + 1`，**id 只增不减**：删掉最新版本后再建版本不会复用它的 id
+（避免前端已选中的对比版本悄悄指向别的版本）。
+
+每条记录为 `{id, label, kind, sha256, size, source_path, created_at}`，`kind` 为 `saved`（保存时自动生成）
+或 `imported`（`/api/version/import` 导入）。`id` 自增并持久化，重启后不重复。
+`POST /api/dat/save` 成功后自动生成一条 `saved` 记录。
 
 ## 配置项
 

@@ -6,6 +6,7 @@ from ... import metadata
 from ..core import diff as diff_engine
 from ..core.diff_loader import diff_loader
 from ..core.subtable import rows_to_dicts
+from ..core.version import version_store
 from ..schemas import DiffRequest
 
 router = APIRouter(prefix="/diff", tags=["diff"])
@@ -42,6 +43,23 @@ def load_target(body: dict):
         return diff_loader.load(path)
     except FileNotFoundError as e:
         raise HTTPException(400, str(e))
+
+
+@router.post("/target/load-version")
+def load_target_version(body: dict):
+    """按版本 id 加载对比目标：返回内容与 /target/load 相同，另附版本信息。"""
+    version_id = body.get("id")
+    rec = version_store.get(version_id) if isinstance(version_id, int) else None
+    if rec is None:
+        raise HTTPException(404, "版本不存在")
+    snap = version_store.snapshot_path(version_id)
+    if snap is None or not snap.exists():
+        raise HTTPException(404, "版本快照文件缺失")
+    try:
+        info = diff_loader.load(str(snap))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, f"加载失败: {e}") from e
+    return {**info, "version": rec}
 
 
 def _tech_detail(d, tech_id: int) -> dict:
